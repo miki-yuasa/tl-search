@@ -1,5 +1,5 @@
 import re
-import spottl as spot
+import spot
 
 from tl_search.common.typing import ObsProp, Transition, AtomicPropositions
 
