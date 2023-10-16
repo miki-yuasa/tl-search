@@ -5,17 +5,17 @@ description = "'Temporal logic inference using greedy search\""
 authors = ["Mikihisa Yuasa <myuasa2@illinois.edu>"]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "tl_search"}]
+packages = [{ include = "tl_search" }]
 
 [tool.poetry.dependencies]
 python = "^3.10,<3.11"
-spottl = {git = "https://github.com/Tran-Research-Group/spottl.git"}
+spot = { git = "https://github.com/Tran-Research-Group/spottl.git" }
 matplotlib = "^3.7.1"
 seaborn = "^0.12.2"
 scikit-learn = "^1.2.2"
 gym = "^0.26"
 dataclasses-json = "^0.5.7"
-stable-baselines3 = {version = "^2.0.0a9", allow-prereleases = true}
+stable-baselines3 = "^2.0.0a9"
 torch = "^2.0.1+cu118"
 shimmy = ">=0.2.1"
 
