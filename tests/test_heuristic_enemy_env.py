@@ -4,7 +4,7 @@ from stable_baselines3 import PPO
 import seaborn as sns
 
 from tl_search.envs.heuristic import HeuristicEnemyEnv
-from tl_search.envs.train import simulate_model
+from tl_search.train.train import simulate_model
 
 
 class TestHeuristicEnemyEnv(unittest.TestCase):

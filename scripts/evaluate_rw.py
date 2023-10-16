@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 from tl_search.common.typing import KLDivReportDict
 from tl_search.evaluation.evaluation import collect_kl_div_stats
-from tl_search.envs.select import (
+from tl_search.search.select import (
     select_max_entropy_spec_replicate,
 )
 

@@ -7,7 +7,7 @@ from tl_search.common.typing import ObsProp
 
 from tl_search.envs.heuristic import HeuristicEnemyEnv
 from tl_search.envs.tl_multigrid import TLMultigrid
-from tl_search.envs.train import simulate_model
+from tl_search.train.train import simulate_model
 from tl_search.envs.typing import EnemyPolicyMode, ModelStats
 
 

@@ -5,9 +5,9 @@ from typing import Final
 import torch
 
 from tl_search.common.io import save_json
-from tl_search.envs.eval import evaluate_tuned_param_replicate_models
+from tl_search.evaluation.eval import evaluate_tuned_param_replicate_models
 from tl_search.envs.typing import EnemyPolicyMode
-from tl_search.envs.train import (
+from tl_search.train.train import (
     train_replicated_rl_agent,
 )
 from tl_search.envs.typing import HeuristicEnemyEnvTrainingConfig

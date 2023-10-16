@@ -16,7 +16,7 @@ from tl_search.common.plotter import (
     plot_results,
 )
 from tl_search.envs.tl_multigrid import TLMultigrid, create_env, make_env
-from tl_search.envs.train import simulate_model
+from tl_search.train.train import simulate_model
 from tl_search.envs.typing import EnemyPolicyMode
 from tl_search.common.typing import ObsProp
 

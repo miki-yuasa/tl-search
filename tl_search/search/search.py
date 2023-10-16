@@ -27,12 +27,15 @@ from tl_search.common.typing import (
     ValueTable,
 )
 from tl_search.common.utils import find_min_kl_div_tl_spec
-from tl_search.envs.extractor import generate_possible_states, get_action_distributions
-from tl_search.envs.select import (
+from tl_search.evaluation.extractor import (
+    generate_possible_states,
+    get_action_distributions,
+)
+from tl_search.search.select import (
     select_max_entropy_spec_replicate,
 )
 from tl_search.envs.tl_multigrid import TLMultigrid, TLMultigridDefaultArgs
-from tl_search.envs.train import simulate_model
+from tl_search.train.train import simulate_model
 from tl_search.envs.typing import EnemyPolicyMode, FieldObj
 from tl_search.evaluation.count import (
     evaluate_episode_lengths_tl,

@@ -1,7 +1,7 @@
 from typing import Callable
 from tl_search.common.io import spec2title
 from tl_search.common.typing import ObsProp
-from tl_search.envs.eval import (
+from tl_search.evaluation.eval import (
     evaluate_replicate_tl_models,
     evaluate_tuned_param_replicate_tl_models,
 )

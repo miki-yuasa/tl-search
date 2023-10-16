@@ -4,7 +4,7 @@ import random
 from typing import Callable, Final
 
 from tl_search.common.typing import Exclusion, ObsProp, SpecNode
-from tl_search.envs.search import train_exh_mp
+from tl_search.search.search import train_exh_mp
 from tl_search.envs.typing import EnemyPolicyMode, FieldObj
 from tl_search.map.utils import distance_area_point, distance_points
 from tl_search.search.neighbor import create_all_nodes, nodes2specs

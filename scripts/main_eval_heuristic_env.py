@@ -1,4 +1,4 @@
-from tl_search.envs.eval import evaluate_tuned_param_replicate_models
+from tl_search.evaluation.eval import evaluate_tuned_param_replicate_models
 from tl_search.envs.typing import EnemyPolicyMode
 
 

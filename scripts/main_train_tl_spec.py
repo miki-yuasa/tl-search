@@ -14,10 +14,13 @@ import torch
 from tl_search.common.typing import Location
 from tl_search.common.io import spec2title
 from tl_search.common.typing import ObsProp
-from tl_search.envs.eval import evaluate_tuned_param_replicate_tl_models
-from tl_search.envs.extractor import generate_possible_states, get_action_distributions
+from tl_search.evaluation.eval import evaluate_tuned_param_replicate_tl_models
+from tl_search.evaluation.extractor import (
+    generate_possible_states,
+    get_action_distributions,
+)
 from tl_search.envs.heuristic import HeuristicEnemyEnv
-from tl_search.envs.search import evaluate_models
+from tl_search.search.search import evaluate_models
 from tl_search.envs.tl_multigrid import TLMultigrid
 from tl_search.envs.typing import EnemyPolicyMode, FieldObj, TLMultigridTrainingConfig
 from tl_search.map.utils import distance_area_point, distance_points

@@ -9,7 +9,7 @@ from tl_search.common.typing import ObsProp
 from tl_search.envs.tl_multigrid import TLMultigrid
 from tl_search.envs.typing import EnemyPolicyMode
 from tl_search.map.utils import distance_area_point, distance_points
-from tl_search.envs.train import simulate_model
+from tl_search.train.train import simulate_model
 
 
 if __name__ == "__main__":

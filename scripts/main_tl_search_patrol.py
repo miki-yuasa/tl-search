@@ -18,7 +18,7 @@ from tl_search.common.typing import (
     ValueTable,
 )
 from tl_search.envs.heuristic import HeuristicEnemyEnv
-from tl_search.envs.search import search_train_evaluate
+from tl_search.search.search import search_train_evaluate
 from tl_search.envs.tl_multigrid import TLMultigrid
 from tl_search.envs.typing import EnemyPolicyMode, FieldObj
 from tl_search.evaluation.count import report_episode_lengths
