@@ -41,7 +41,7 @@ from tl_search.evaluation.count import (
     evaluate_episode_lengths_tl,
     get_episode_length_report,
 )
-from tl_search.evaluation.evaluation import collect_kl_div_stats
+from tl_search.evaluation.eval import collect_kl_div_stats
 from tl_search.evaluation.filter import apply_filter
 from tl_search.evaluation.ranking import sort_spec
 from tl_search.search.neighbor import (

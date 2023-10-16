@@ -1,10 +1,12 @@
 import json
-from typing import Literal
+from typing import overload
 
 import numpy as np
+from numpy.typing import NDArray
 from stable_baselines3 import PPO
-from tl_search.common.typing import ObsProp
 
+from tl_search.common.utils import confidence_interval
+from tl_search.common.typing import KLDivReport, KLDivReportDict, ObsProp
 from tl_search.envs.heuristic import HeuristicEnemyEnv
 from tl_search.envs.tl_multigrid import TLMultigrid
 from tl_search.train.train import simulate_model
@@ -276,3 +278,40 @@ def evaluate_tuned_param_replicate_tl_models(
         "w",
     ) as f:
         json.dump(tuned_param_stats, f, indent=4)
+
+
+@overload
+def collect_kl_div_stats(kl_divs: NDArray, in_dict: bool = True) -> KLDivReportDict:
+    ...
+
+
+@overload
+def collect_kl_div_stats(kl_divs: NDArray, in_dict: bool = False) -> KLDivReport:
+    ...
+
+
+def collect_kl_div_stats(kl_divs: NDArray, in_dict: bool = False):
+    kl_div_mean: float = float(np.mean(kl_divs))
+    kl_div_std: float = float(np.std(kl_divs))
+    kl_div_max: float = float(np.max(kl_divs))
+    kl_div_min: float = float(np.min(kl_divs))
+    kl_div_median: float = float(np.median(kl_divs))
+
+    try:
+        kl_ci: tuple[float, float] = confidence_interval(kl_divs, 1.96)
+    except:
+        kl_ci = (0, 0)
+
+    report: KLDivReport | KLDivReportDict
+    if in_dict:
+        report = {
+            "kl_div_mean": kl_div_mean,
+            "kl_div_std": kl_div_std,
+            "kl_div_max": kl_div_max,
+            "kl_div_min": kl_div_min,
+            "kl_div_median": kl_div_median,
+            "kl_ci": kl_ci,
+        }
+    else:
+        report = KLDivReport(kl_div_mean, kl_div_std, kl_div_max, kl_div_min, kl_ci)
+    return report

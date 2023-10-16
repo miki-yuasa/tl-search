@@ -5,18 +5,7 @@ from typing import Union
 import numpy as np
 
 from tl_search.common.json import json_zip, json_unzip
-from tl_search.common.typing import (
-    AccuracyLogger,
-    KLDivLogger,
-    ExperimentLogger,
-    ActionProbsSpec,
-    MultiStartSearchLogger,
-    SortedLogger,
-    MultiStepKLDivLogger,
-    ProbabilityLogger,
-    PositiveRewardLogger,
-    HyperparameterTuningLogger,
-)
+from tl_search.common.typing import KLDivLogger, ExperimentLogger, ActionProbsSpec
 from tl_search.common.utils import find_max_reward_spec, find_min_kl_div_tl_spec
 
 
@@ -27,27 +16,6 @@ def save_json(
     filepath = get_file_path(path)
     with open(filepath, "w") as f:
         f.write(config)
-
-
-def data_saver(
-    saved_data: KLDivLogger
-    | AccuracyLogger
-    | ProbabilityLogger
-    | PositiveRewardLogger
-    | ExperimentLogger
-    | MultiStepKLDivLogger
-    | HyperparameterTuningLogger
-    | SortedLogger
-    | MultiStartSearchLogger,
-    savename: str,
-    zip_file: bool = False,
-) -> None:
-    filepath = get_file_path(savename)
-    with open(filepath, "w") as f:
-        if zip_file:
-            json.dump(json_zip(saved_data), f)
-        else:
-            json.dump(saved_data._asdict(), f, indent=4)
 
 
 def kl_div_data_saver(
