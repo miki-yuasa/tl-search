@@ -5,7 +5,6 @@ from numpy.typing import NDArray
 
 
 SaveMode = Literal["enabled", "suppressed", "disabled"]
-PolicyMode = Literal["known", "unknown"]
 FilterMode = Literal["mean", "elementwise"]
 RankOption = Literal["kl_div", "reward"]
 AutomatonStateStatus = Literal["intermediate", "trap", "goal"]
@@ -179,24 +178,6 @@ class ExperimentLogger(NamedTuple):
     model_names: list[list[str]]
     mean_rewards: list[list[float]]
     std_rewards: list[list[float]]
-
-
-class MultiStepKLDivLogger(NamedTuple):
-    policy_mode: PolicyMode
-    experiment: int
-    comparison_steps: int
-    num_sampling: int
-    min_kl_div_spec: str
-    max_reward_spec: str
-    min_kl_div_mean: float
-    mean_kl_div_mean: float
-    max_kl_div_mean: float
-    min_reward_mean: float
-    mean_reward_mean: float
-    max_reward_mean: float
-    tl_specs: list[str]
-    kl_divs: list[float]
-    mean_rewards: list[list[float]]
 
 
 class AccuracyLogger(NamedTuple):

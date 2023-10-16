@@ -9,33 +9,9 @@ from matplotlib.patches import Rectangle, Circle
 from stable_baselines3 import PPO
 from stable_baselines3.common.base_class import BaseAlgorithm
 
-from tl_search.tl.environment import Environment
-from tl_search.tl.constants import fight_range
 from tl_search.map.utils import parse_map
 from tl_search.common.io import get_file_path
 from tl_search.common.typing import MapObjectIDs, Location, FixedMapLocations, SaveMode
-
-
-def simulate_model(
-    model: Union[PPO, BaseAlgorithm],
-    env: Environment,
-    blue_agent_init_loc: Union[Location, None] = None,
-    red_agent_init_loc: Union[Location, None] = None,
-) -> Environment:
-    print("Simulating model for: {}".format(env.aut.tl_spec))
-
-    done: bool = False
-    obs = (
-        env.reset_with_agent_locs(blue_agent_init_loc, red_agent_init_loc)
-        if blue_agent_init_loc and red_agent_init_loc
-        else env.reset()
-    )
-
-    while not done:
-        action, _ = model.predict(obs, deterministic=True)
-        obs, _, done, _ = env.step(action)
-
-    return env
 
 
 def create_animation(
