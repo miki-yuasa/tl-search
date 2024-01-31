@@ -13,7 +13,6 @@ from tl_search.common.typing import (
     EntropyReportDict,
     EpisodeLengthReport,
     Exclusion,
-    Location,
     MultiStartSearchLog,
     ObsProp,
     SpecNode,
