@@ -2,7 +2,7 @@ import itertools, json, os, random
 import pickle
 from math import ceil
 import multiprocessing as mp
-from typing import Callable, Final
+from typing import Callable, Final, Literal
 
 import numpy as np
 from numpy.typing import NDArray
@@ -41,10 +41,10 @@ if __name__ == "__main__":
     num_processes: int = 25
 
     enemy_policy_mode: EnemyPolicyMode = "patrol"
-    warm_start: bool = False
+    warm_start_mode: Literal["target", "parent", None] = "parent"
     reward_threshold: float = 0.5 * 0.1
-    episode_length_sigma: float | None = 2 if warm_start else None
-    kl_div_suffix: str | None = "exp2_single_stoch"
+    episode_length_sigma: float | None = 2 if warm_start_mode == "target" else None
+    kl_div_suffix: str | None = "exp3_single_stoch_ws"
 
     target_spec: str | None = "F((psi_ba_rf)&(!psi_ra_bf)) & G(!psi_ba_ra|psi_ba_bt)"
 
@@ -84,7 +84,15 @@ if __name__ == "__main__":
 
     exclusions: list[Exclusion] = []
 
-    suffix: str = "_ws" if warm_start else "_stoch"
+    suffix: str
+    match warm_start_mode:
+        case "target":
+            suffix = "_ws"
+        case "parent":
+            suffix = "_parent_ws"
+        case None:
+            suffix = "_stoch"
+
     log_suffix: str = (
         f"{kl_div_suffix}_extended_" if kl_div_suffix is not None else "extended_"
     )
@@ -92,7 +100,7 @@ if __name__ == "__main__":
     target_model_path: str = (
         (
             "out/models/search/heuristic/patrol/patrol_enemy_ppo_ws_F(psi_ba_rf_and_!psi_ra_bf)_and_G(!psi_ba_ra_or_psi_ba_bt)_ws.zip"
-            if warm_start
+            if warm_start_mode == "target"
             else "out/models/search/heuristic/patrol/patrol_enemy_ppo_F((psi_ba_rf)_and_(!psi_ra_bf))_and_G(!psi_ba_ra_or_psi_ba_bt).zip"
         )
         if "exp1" in kl_div_suffix
@@ -324,7 +332,7 @@ if __name__ == "__main__":
             episode_length_report=episode_length_report,
             reward_threshold=reward_threshold,
             episode_length_sigma=episode_length_sigma,
-            warm_start_path=None if not warm_start else target_model_path,
+            warm_start_path=None if warm_start_mode == "target" else target_model_path,
             kl_div_suffix=kl_div_suffix,
         )
         local_optimum_nodes.append(node_trace[-1])

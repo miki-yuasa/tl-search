@@ -2,6 +2,7 @@ import json, os, pickle
 from multiprocessing import Pool
 import multiprocessing as mp
 import random
+from typing import Literal
 
 import numpy as np
 from numpy.typing import NDArray
@@ -84,6 +85,7 @@ def search_train_evaluate(
     episode_length_report: EpisodeLengthReport | None = None,
     reward_threshold: float = 0.0,
     episode_length_sigma: float | None = 1,
+    warm_start_mode: Literal["target", "parent", None] = None,
     warm_start_path: str | None = None,
     kl_div_suffix: str | None = None,
 ) -> tuple[list[SpecNode], list[str], list[float], list[str]]:
@@ -157,6 +159,14 @@ def search_train_evaluate(
 
         with open(search_log_path, "w") as f:
             json.dump(search_log, f, indent=4)
+
+        match warm_start_mode:
+            case "target":
+                assert warm_start_path is not None
+            case "parent":
+                warm_start_path = model_save_path.replace(
+                    ".zip", f"_{spec2title(node2spec(node))}.zip"
+                )
 
         kl_div_means, reward_means, mean_episode_lengths = train_evaluate_multiprocess(
             num_processes,
@@ -559,7 +569,6 @@ def train_evaluate(
         )
     )
 
-    warm_start_suffix: str = "_ws" if warm_start_path is not None else ""
     seeds_tmp: list[int] = [random.randint(0, 10000) for _ in range(num_replicates)]
 
     try:
@@ -569,15 +578,9 @@ def train_evaluate(
             env,
             seeds_tmp,
             total_time_steps,
-            model_save_path.replace(
-                ".zip", f"_{spec2title(tl_spec)}{warm_start_suffix}.zip"
-            ),
-            learning_curve_path.replace(
-                ".png", f"_{spec2title(tl_spec)}{warm_start_suffix}.png"
-            ),
-            animation_save_path.replace(
-                ".gif", f"_{spec2title(tl_spec)}{warm_start_suffix}.gif"
-            )
+            model_save_path.replace(".zip", f"_{spec2title(tl_spec)}.zip"),
+            learning_curve_path.replace(".png", f"_{spec2title(tl_spec)}.png"),
+            animation_save_path.replace(".gif", f"_{spec2title(tl_spec)}.gif")
             if animation_save_path is not None
             else None,
             device,
