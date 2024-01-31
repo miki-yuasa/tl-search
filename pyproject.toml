@@ -9,15 +9,17 @@ packages = [{ include = "tl_search" }]
 
 [tool.poetry.dependencies]
 python = "^3.10,<3.11"
-spot = { git = "https://github.com/Tran-Research-Group/spottl.git" }
 matplotlib = "^3.7.1"
 seaborn = "^0.12.2"
 scikit-learn = "^1.2.2"
 gym = "^0.26"
 dataclasses-json = "^0.5.7"
 stable-baselines3 = "^2.0.0a9"
-torch = "^2.0.1+cu118"
+torch = { version = "2.0.0+cu118", source = "torch" }
 shimmy = ">=0.2.1"
+spottl = "^2.11.6"
+gymnasium = "^0.29.1"
+pettingzoo = "^1.24.3"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -27,8 +29,8 @@ black = "^23.3.0"
 [[tool.poetry.source]]
 name = "torch"
 url = "https://download.pytorch.org/whl/cu118"
-default = false
-secondary = false
+priority = "supplemental"
+
 
 [build-system]
 requires = ["poetry-core"]
