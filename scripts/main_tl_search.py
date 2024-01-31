@@ -33,8 +33,8 @@ from tl_search.map.utils import distance_area_point, distance_points
 from tl_search.search.neighbor import create_neighbor_masks, initialize_node, spec2node
 
 if __name__ == "__main__":
-    run: int = 10
-    gpu: int = 1  # (run - 1) % 4
+    run: int = 1
+    gpu: int = 2  # (run - 1) % 4
     num_samples: int = 5000
     num_start: int = 1
     num_max_search_steps: int = 10
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     num_replicates: Final[int] = 3
     num_episodes: Final[int] = 200
     window: Final[int] = ceil(round(total_timesteps / 100))
-    map_path: Final[str] = "tl_search/map/maps/board_0002_obj.txt"
+    map_path: Final[str] = "assets/maps/board_0002_obj.txt"
 
     tuned_param_name: Final[str | None] = "ent_coef"
     tuned_param_value: Final[float] = 0.1
