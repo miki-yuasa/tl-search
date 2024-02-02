@@ -8,7 +8,7 @@ readme = "README.md"
 packages = [{ include = "tl_search" }]
 
 [tool.poetry.dependencies]
-python = "^3.10,<3.11"
+python = "^3.10,<3.12"
 matplotlib = "^3.7.1"
 seaborn = "^0.12.2"
 scikit-learn = "^1.2.2"
