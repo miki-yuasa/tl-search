@@ -41,7 +41,7 @@ class AdversarialParkingEnv(ParkingEnv):
                 "centering_position": [0.5, 0.5],
                 "scaling": 7,
                 "controlled_vehicles": 1,
-                "vehicles_count": 0,
+                "vehicles_count": 10,
                 "add_walls": True,
             }
         )
@@ -60,16 +60,35 @@ class AdversarialParkingEnv(ParkingEnv):
             self.controlled_vehicles.append(vehicle)
 
         # Goal
-        lane = self.np_random.choice(self.road.network.lanes_list())
+        goal_lane = self.np_random.choice(self.road.network.lanes_list())
         self.goal = Landmark(
-            self.road, lane.position(lane.length / 2, 0), heading=lane.heading
+            self.road,
+            goal_lane.position(goal_lane.length / 2, 0),
+            heading=goal_lane.heading,
         )
         self.road.objects.append(self.goal)
 
         # Other vehicles
-        for i in range(self.config["vehicles_count"]):
-            lane = ("a", "b", i) if self.np_random.uniform() >= 0.5 else ("b", "c", i)
-            v = Vehicle.make_on_lane(self.road, lane, 4, speed=0)
+        selected_lane_indexes: list[tuple[str, str, int]] = []
+        for _ in range(self.config["vehicles_count"]):
+            while True:
+                lane_id = self.np_random.choice(
+                    range(0, int(len(self.road.network.lanes_list()) / 2))
+                )
+                lane_index = (
+                    ("a", "b", lane_id)
+                    if self.np_random.uniform() >= 0.5
+                    else ("b", "c", lane_id)
+                )
+
+                if (
+                    goal_lane != self.road.network.get_lane(lane_index)
+                    and lane_index not in selected_lane_indexes
+                ):
+                    selected_lane_indexes.append(lane_index)
+                    break
+
+            v = Vehicle.make_on_lane(self.road, lane_index, 4, speed=0)
             self.road.vehicles.append(v)
 
         # Random vehicles
