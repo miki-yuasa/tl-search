@@ -19,7 +19,7 @@ torch = { version = "2.0.0+cu118", source = "torch" }
 shimmy = ">=0.2.1"
 spottl = "^2.11.6"
 gymnasium = "^0.29.1"
-pettingzoo = "^1.24.3"
+highway-env = "^1.8.2"
 
 
 [tool.poetry.group.dev.dependencies]
