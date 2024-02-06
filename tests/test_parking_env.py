@@ -11,7 +11,7 @@ print(obs)
 
 frames = []
 
-for _ in range(20):
+for _ in range(30):
     action = env.action_space.sample()
     obs, reward, terminated, truncated, info = env.step(action)
     print(obs)
@@ -19,6 +19,7 @@ for _ in range(20):
     if terminated:
         obs = env.reset()
         print(obs)
+        break
 
 env.close()
 

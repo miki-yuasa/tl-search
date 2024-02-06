@@ -1,7 +1,9 @@
-from typing import Optional
+from typing import Optional, Union
 from highway_env.envs import AbstractEnv
 from highway_env.envs.common.graphics import EnvViewer
 from highway_env.envs.parking_env import ParkingEnv
+from highway_env.road.road import Road
+from highway_env.utils import Vector
 from highway_env.vehicle.behavior import IDMVehicle
 from highway_env.vehicle.graphics import VehicleGraphics
 from highway_env.vehicle.kinematics import Vehicle
@@ -43,6 +45,12 @@ class AdversarialParkingEnv(ParkingEnv):
                 "controlled_vehicles": 1,
                 "vehicles_count": 10,
                 "add_walls": True,
+                "adversarial_vehicle_spawn_config": [
+                    {"spawn_point": [-30, 4], "heading": 0, "speed": 5},
+                    {"spawn_point": [-30, -4], "heading": 0, "speed": 5},
+                    {"spawn_point": [30, -4], "heading": np.pi, "speed": 5},
+                    {"spawn_point": [30, -4], "heading": np.pi, "speed": 5},
+                ],
             }
         )
         return config
@@ -91,11 +99,17 @@ class AdversarialParkingEnv(ParkingEnv):
             v = Vehicle.make_on_lane(self.road, lane_index, 4, speed=0)
             self.road.vehicles.append(v)
 
-        # Random vehicles
-        vehicle = IDMVehicle(
-            self.road, [10, 4], target_speed=10, target_lane_index=("a", "b", 1)
+        # Adversarial vehicle
+        vehicle_config: dict = self.np_random.choice(
+            self.config["adversarial_vehicle_spawn_config"]
         )
-        vehicle.randomize_behavior()
+        vehicle = RandomVehicle(
+            self.road,
+            vehicle_config["spawn_point"],
+            vehicle_config["heading"],
+            vehicle_config["speed"],
+        )
+        # vehicle.color = VehicleGraphics.PURPLE
         self.road.vehicles.append(vehicle)
 
         # Walls
@@ -138,6 +152,36 @@ class AdversarialParkingEnv(ParkingEnv):
         if self.render_mode == "rgb_array":
             image = self.viewer.get_image()
             return image
+
+
+class RandomVehicle(Vehicle):
+    ACCELERATION_RANGE: tuple[float, float] = (-5, 5.0)
+
+    def __init__(
+        self,
+        road: Road,
+        position: Vector,
+        heading: float = 0,
+        speed: float = 0,
+        predition_type: str = "constant_steering",
+    ):
+        super().__init__(road, position, heading, speed, predition_type)
+
+    def act(self, action: Union[dict, str] = None) -> None:
+        """
+        Store an action to be repeated.
+
+        :param action: the input action
+        """
+        if action:
+            self.action = action
+        else:
+            self.action = {
+                "steering": 0,
+                "acceleration": self.road.np_random.uniform(
+                    low=self.ACCELERATION_RANGE[0], high=self.ACCELERATION_RANGE[1]
+                ),
+            }
 
 
 class AbsoluteCenterEnvViewer(EnvViewer):
