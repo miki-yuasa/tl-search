@@ -43,7 +43,7 @@ class AdversarialParkingEnv(ParkingEnv):
                 "centering_position": [0.5, 0.5],
                 "scaling": 7,
                 "controlled_vehicles": 1,
-                "vehicles_count": 10,
+                "vehicles_count": 6,
                 "add_walls": True,
                 "adversarial_vehicle_spawn_config": [
                     {"spawn_point": [-30, 4], "heading": 0, "speed": 5},
