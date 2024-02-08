@@ -1,15 +1,20 @@
-from typing import Optional, Union
+from collections import OrderedDict
+from typing import Dict, List, Optional, Union
+
 from highway_env.envs import AbstractEnv
+from highway_env.envs.common.action import action_factory
 from highway_env.envs.common.graphics import EnvViewer
+from highway_env.envs.common.observation import KinematicsGoalObservation
 from highway_env.envs.parking_env import ParkingEnv
 from highway_env.road.road import Road
 from highway_env.utils import Vector
-from highway_env.vehicle.behavior import IDMVehicle
 from highway_env.vehicle.graphics import VehicleGraphics
 from highway_env.vehicle.kinematics import Vehicle
 from highway_env.vehicle.objects import Landmark, Obstacle
 import numpy as np
+from numpy.typing import NDArray
 import gymnasium as gym
+import pandas as pd
 
 
 class AdversarialParkingEnv(ParkingEnv):
@@ -55,6 +60,17 @@ class AdversarialParkingEnv(ParkingEnv):
         )
         return config
 
+    def define_spaces(self) -> None:
+        self.observation_type = KinematicGoalVehiclesObservation(
+            self, **self.config["observation"]
+        )
+        self.action_type = action_factory(self, self.config["action"])
+        self.observation_space = self.observation_type.space()
+        self.action_space = self.action_type.space()
+        self.observation_type_parking = KinematicsGoalObservation(
+            self, **self.config["observation"]
+        )
+
     def _create_vehicles(self) -> None:
         """Create some new random vehicles of a given type, and add them on the road."""
         # Controlled vehicles
@@ -78,7 +94,7 @@ class AdversarialParkingEnv(ParkingEnv):
 
         # Other vehicles
         selected_lane_indexes: list[tuple[str, str, int]] = []
-        for _ in range(self.config["vehicles_count"]):
+        for _ in range(self.config["vehicles_count"] - 1):
             while True:
                 lane_id = self.np_random.choice(
                     range(0, int(len(self.road.network.lanes_list()) / 2))
@@ -152,6 +168,62 @@ class AdversarialParkingEnv(ParkingEnv):
         if self.render_mode == "rgb_array":
             image = self.viewer.get_image()
             return image
+
+
+class KinematicGoalVehiclesObservation(KinematicsGoalObservation):
+    def __init__(self, env: AbstractEnv, scales: List[float], **kwargs: dict) -> None:
+        super().__init__(env, scales, **kwargs)
+        self.vehicles_count: int = env.config["vehicles_count"]
+
+    def observe(self, **kwargs: dict) -> dict[str, np.ndarray]:
+        if not self.observer_vehicle:
+            return OrderedDict(
+                [
+                    (
+                        "observation",
+                        np.zeros((self.vehicles_count, len(self.features))),
+                    ),
+                    ("achieved_goal", np.zeros((len(self.features),))),
+                    ("desired_goal", np.zeros((len(self.features),))),
+                ]
+            )
+
+        # Add ego-vehicle
+        ego_df = pd.DataFrame.from_records([self.observer_vehicle.to_dict()])[
+            self.features
+        ]
+
+        # Add all other vehicles
+        other_vehicles = self.env.road.vehicles[1:].copy()
+
+        origin = self.observer_vehicle
+        all_df = pd.concat(
+            [
+                ego_df,
+                pd.DataFrame.from_records(
+                    [
+                        v.to_dict(origin, observe_intentions=False)
+                        for v in other_vehicles
+                        if v is not origin
+                    ]
+                ),
+            ]
+        )
+
+        veh_obs: NDArray[np.float_] = all_df[self.features].to_numpy(dtype=np.float_)
+
+        ego_obs: NDArray[np.float_] = np.ravel(ego_df)
+        goal: NDArray[np.float_] = np.ravel(
+            pd.DataFrame.from_records([self.env.goal.to_dict()])[self.features]
+        )
+        obs: dict[str, NDArray] = OrderedDict(
+            [
+                ("observation", veh_obs / self.scales),
+                ("achieved_goal", ego_obs / self.scales),
+                ("desired_goal", goal / self.scales),
+            ]
+        )
+        return obs
 
 
 class RandomVehicle(Vehicle):

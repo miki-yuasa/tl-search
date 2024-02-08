@@ -5,11 +5,15 @@ import imageio
 
 from tl_search.envs.parking import AdversarialParkingEnv
 
-total_timesteps = 1_000_000
+total_timesteps = 500_000
+net_arch: list[int] = [256, 256]
 tb_log_path: str = "out/logs/parking_demo"
-model_save_path: str = "out/models/parking/parking_demo_64"
-animation_save_path: str = "out/plots/animation/parking_demo_64.gif"
+
+net_arch_str = "_".join(map(str, net_arch))
+model_save_path: str = f"out/models/parking/parking_demo_{net_arch_str}"
+animation_save_path: str = f"out/plots/animation/parking_demo_{net_arch_str}.gif"
 gpu_id: int = 0
+
 
 config = {
     "observation": {
