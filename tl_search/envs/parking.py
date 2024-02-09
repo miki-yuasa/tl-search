@@ -14,6 +14,7 @@ from highway_env.vehicle.objects import Landmark, Obstacle
 import numpy as np
 from numpy.typing import NDArray
 import gymnasium as gym
+from gymnasium import spaces
 import pandas as pd
 
 
@@ -48,7 +49,7 @@ class AdversarialParkingEnv(ParkingEnv):
                 "centering_position": [0.5, 0.5],
                 "scaling": 7,
                 "controlled_vehicles": 1,
-                "vehicles_count": 6,
+                "vehicles_count": 10,
                 "add_walls": True,
                 "adversarial_vehicle_spawn_config": [
                     {"spawn_point": [-30, 4], "heading": 0, "speed": 5},
@@ -84,7 +85,9 @@ class AdversarialParkingEnv(ParkingEnv):
             self.controlled_vehicles.append(vehicle)
 
         # Goal
-        goal_lane = self.np_random.choice(self.road.network.lanes_list())
+        goal_lane = self.road.network.lanes_list()[
+            3
+        ]  # self.np_random.choice(self.road.network.lanes_list())
         self.goal = Landmark(
             self.road,
             goal_lane.position(goal_lane.length / 2, 0),
@@ -93,40 +96,54 @@ class AdversarialParkingEnv(ParkingEnv):
         self.road.objects.append(self.goal)
 
         # Other vehicles
-        selected_lane_indexes: list[tuple[str, str, int]] = []
-        for _ in range(self.config["vehicles_count"] - 1):
-            while True:
-                lane_id = self.np_random.choice(
-                    range(0, int(len(self.road.network.lanes_list()) / 2))
-                )
-                lane_index = (
-                    ("a", "b", lane_id)
-                    if self.np_random.uniform() >= 0.5
-                    else ("b", "c", lane_id)
-                )
+        selected_lane_indexes: list[tuple[str, str, int]] = [
+            ("a", "b", 9),
+            ("b", "c", 11),
+            ("a", "b", 10),
+            ("b", "c", 0),
+            ("a", "b", 6),
+            ("b", "c", 8),
+            ("b", "c", 2),
+            ("a", "b", 0),
+            ("b", "c", 10),
+            ("b", "c", 1),
+        ]
+        for i in range(self.config["vehicles_count"] - 1):
+            # while True:
+            #     lane_id = self.np_random.choice(
+            #         range(0, int(len(self.road.network.lanes_list()) / 2))
+            #     )
+            #     lane_index = (
+            #         ("a", "b", lane_id)
+            #         if self.np_random.uniform() >= 0.5
+            #         else ("b", "c", lane_id)
+            #     )
 
-                if (
-                    goal_lane != self.road.network.get_lane(lane_index)
-                    and lane_index not in selected_lane_indexes
-                ):
-                    selected_lane_indexes.append(lane_index)
-                    break
+            #     if (
+            #         goal_lane != self.road.network.get_lane(lane_index)
+            #         and lane_index not in selected_lane_indexes
+            #     ):
+            #         selected_lane_indexes.append(lane_index)
+            #         break
 
-            v = Vehicle.make_on_lane(self.road, lane_index, 4, speed=0)
+            v = Vehicle.make_on_lane(self.road, selected_lane_indexes[i], 4, speed=0)
             self.road.vehicles.append(v)
 
         # Adversarial vehicle
-        vehicle_config: dict = self.np_random.choice(
-            self.config["adversarial_vehicle_spawn_config"]
-        )
-        vehicle = RandomVehicle(
-            self.road,
-            vehicle_config["spawn_point"],
-            vehicle_config["heading"],
-            vehicle_config["speed"],
-        )
-        # vehicle.color = VehicleGraphics.PURPLE
-        self.road.vehicles.append(vehicle)
+        if self.config["vehicles_count"] > 1:
+            vehicle_config: dict = self.np_random.choice(
+                self.config["adversarial_vehicle_spawn_config"]
+            )
+            vehicle = RandomVehicle(
+                self.road,
+                vehicle_config["spawn_point"],
+                vehicle_config["heading"],
+                vehicle_config["speed"],
+            )
+            # vehicle.color = VehicleGraphics.PURPLE
+            self.road.vehicles.append(vehicle)
+        else:
+            pass
 
         # Walls
         if self.config["add_walls"]:
@@ -169,24 +186,76 @@ class AdversarialParkingEnv(ParkingEnv):
             image = self.viewer.get_image()
             return image
 
+    def _info(self, obs, action) -> dict:
+        info = super(ParkingEnv, self)._info(obs, action)
+
+        achieved_goal = obs["observation"][0]
+
+        obs = self.observation_type_parking.observe()
+        success = self._is_success(achieved_goal, obs["desired_goal"])
+        info.update({"is_success": success})
+        return info
+
+    def _reward(self, action: np.ndarray) -> float:
+        obs = self.observation_type_parking.observe()
+        # obs = obs if isinstance(obs, tuple) else (obs,)
+        reward = self.compute_reward(obs["observation"][0], obs["desired_goal"], {})
+        reward += self.config["collision_reward"] * sum(
+            v.crashed for v in self.controlled_vehicles
+        )
+        return reward
+
+    def _is_terminated(self) -> bool:
+        """The episode is over if the ego vehicle crashed or the goal is reached or time is over."""
+        crashed = any(vehicle.crashed for vehicle in self.controlled_vehicles)
+        obs = self.observation_type_parking.observe()
+        obs = obs if isinstance(obs, tuple) else (obs,)
+        success = all(
+            self._is_success(agent_obs["observation"][0], agent_obs["desired_goal"])
+            for agent_obs in obs
+        )
+        return bool(crashed or success)
+
 
 class KinematicGoalVehiclesObservation(KinematicsGoalObservation):
     def __init__(self, env: AbstractEnv, scales: List[float], **kwargs: dict) -> None:
         super().__init__(env, scales, **kwargs)
-        self.vehicles_count: int = env.config["vehicles_count"]
+        self.vehicles_count: int = (
+            env.config["vehicles_count"] + env.config["controlled_vehicles"]
+        )
+
+    def space(self) -> spaces.Space:
+        obs = self.observe()
+        return spaces.Dict(
+            {
+                "observation": spaces.Box(
+                    -np.inf,
+                    np.inf,
+                    shape=obs["observation"].shape,
+                    dtype=np.float64,
+                ),
+                # achieved_goal=spaces.Box(
+                #     -np.inf,
+                #     np.inf,
+                #     shape=obs["achieved_goal"].shape,
+                #     dtype=np.float64,
+                # ),
+                "desired_goal": spaces.Box(
+                    -np.inf,
+                    np.inf,
+                    shape=obs["desired_goal"].shape,
+                    dtype=np.float64,
+                ),
+            }
+        )
 
     def observe(self, **kwargs: dict) -> dict[str, np.ndarray]:
         if not self.observer_vehicle:
-            return OrderedDict(
-                [
-                    (
-                        "observation",
-                        np.zeros((self.vehicles_count, len(self.features))),
-                    ),
-                    ("achieved_goal", np.zeros((len(self.features),))),
-                    ("desired_goal", np.zeros((len(self.features),))),
-                ]
-            )
+            return {
+                "observation": np.zeros((self.vehicles_count, len(self.features))),
+                # "achieved_goal": np.zeros((len(self.features),)),
+                "desired_goal": np.zeros((len(self.features),)),
+            }
 
         # Add ego-vehicle
         ego_df = pd.DataFrame.from_records([self.observer_vehicle.to_dict()])[
@@ -216,13 +285,11 @@ class KinematicGoalVehiclesObservation(KinematicsGoalObservation):
         goal: NDArray[np.float_] = np.ravel(
             pd.DataFrame.from_records([self.env.goal.to_dict()])[self.features]
         )
-        obs: dict[str, NDArray] = OrderedDict(
-            [
-                ("observation", veh_obs / self.scales),
-                ("achieved_goal", ego_obs / self.scales),
-                ("desired_goal", goal / self.scales),
-            ]
-        )
+        obs: dict[str, NDArray] = {
+            "observation": veh_obs / self.scales,
+            # "achieved_goal": ego_obs,
+            "desired_goal": goal / self.scales,
+        }
         return obs
 
 
