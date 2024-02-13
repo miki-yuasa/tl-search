@@ -85,9 +85,8 @@ class AdversarialParkingEnv(ParkingEnv):
             self.controlled_vehicles.append(vehicle)
 
         # Goal
-        goal_lane = self.road.network.lanes_list()[
-            3
-        ]  # self.np_random.choice(self.road.network.lanes_list())
+        goal_lane = self.road.network.lanes_list()[4]
+        # goal_lane = self.np_random.choice(self.road.network.lanes_list())
         self.goal = Landmark(
             self.road,
             goal_lane.position(goal_lane.length / 2, 0),
@@ -189,7 +188,7 @@ class AdversarialParkingEnv(ParkingEnv):
     def _info(self, obs, action) -> dict:
         info = super(ParkingEnv, self)._info(obs, action)
 
-        achieved_goal = obs["observation"][0]
+        achieved_goal = obs["achieved_goal"]
 
         obs = self.observation_type_parking.observe()
         success = self._is_success(achieved_goal, obs["desired_goal"])
@@ -199,10 +198,14 @@ class AdversarialParkingEnv(ParkingEnv):
     def _reward(self, action: np.ndarray) -> float:
         obs = self.observation_type_parking.observe()
         # obs = obs if isinstance(obs, tuple) else (obs,)
-        reward = self.compute_reward(obs["observation"][0], obs["desired_goal"], {})
+        reward = self.compute_reward(obs["achieved_goal"], obs["desired_goal"], {})
         reward += self.config["collision_reward"] * sum(
             v.crashed for v in self.controlled_vehicles
         )
+
+        if self.goal.hit:
+            reward += 0.12
+
         return reward
 
     def _is_terminated(self) -> bool:
@@ -211,10 +214,16 @@ class AdversarialParkingEnv(ParkingEnv):
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
         success = all(
-            self._is_success(agent_obs["observation"][0], agent_obs["desired_goal"])
+            self._is_success(agent_obs["achieved_goal"], agent_obs["desired_goal"])
             for agent_obs in obs
         )
         return bool(crashed or success)
+
+    def _is_success(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> bool:
+        return (
+            self.compute_reward(achieved_goal, desired_goal, {})
+            > -self.config["success_goal_reward"]
+        )
 
 
 class KinematicGoalVehiclesObservation(KinematicsGoalObservation):
@@ -234,12 +243,12 @@ class KinematicGoalVehiclesObservation(KinematicsGoalObservation):
                     shape=obs["observation"].shape,
                     dtype=np.float64,
                 ),
-                # achieved_goal=spaces.Box(
-                #     -np.inf,
-                #     np.inf,
-                #     shape=obs["achieved_goal"].shape,
-                #     dtype=np.float64,
-                # ),
+                "achieved_goal": spaces.Box(
+                    -np.inf,
+                    np.inf,
+                    shape=obs["achieved_goal"].shape,
+                    dtype=np.float64,
+                ),
                 "desired_goal": spaces.Box(
                     -np.inf,
                     np.inf,
@@ -253,7 +262,7 @@ class KinematicGoalVehiclesObservation(KinematicsGoalObservation):
         if not self.observer_vehicle:
             return {
                 "observation": np.zeros((self.vehicles_count, len(self.features))),
-                # "achieved_goal": np.zeros((len(self.features),)),
+                "achieved_goal": np.zeros((len(self.features),)),
                 "desired_goal": np.zeros((len(self.features),)),
             }
 
@@ -286,9 +295,9 @@ class KinematicGoalVehiclesObservation(KinematicsGoalObservation):
             pd.DataFrame.from_records([self.env.goal.to_dict()])[self.features]
         )
         obs: dict[str, NDArray] = {
-            "observation": veh_obs / self.scales,
-            # "achieved_goal": ego_obs,
-            "desired_goal": goal / self.scales,
+            "observation": np.ravel(veh_obs / self.scales),
+            "achieved_goal": ego_obs / self.scales,
+            "desired_goal": goal / self.scales - ego_obs / self.scales,
         }
         return obs
 
