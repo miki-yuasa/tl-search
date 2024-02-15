@@ -8,7 +8,7 @@ from tl_search.envs.parking import AdversarialParkingEnv
 
 use_saved_model: bool = False
 
-total_timesteps = 50_000
+total_timesteps = 150_000
 net_arch: list[int] = [512 for _ in range(3)]
 
 rl_algo: Literal["ppo", "sac"] = "sac"
@@ -16,12 +16,11 @@ rl_algo: Literal["ppo", "sac"] = "sac"
 tb_log_path: str = "out/logs/parking_demo"
 
 net_arch_str = "_".join(map(str, net_arch))
-model_save_path: str = (
-    f"out/models/parking/parking_demo_fixed_{rl_algo}_{net_arch_str}_timesteps_{total_timesteps/1_000_000}M.zip"
+suffix: str = (
+    f"{rl_algo}_{net_arch_str}_timesteps_{total_timesteps/1_000_000}M_walls_sparse_rand"
 )
-animation_save_path: str = (
-    f"out/plots/animation/parking_demo_fixed_{rl_algo}_{net_arch_str}_timesteps_{total_timesteps/1_000_000}M.gif"
-)
+model_save_path: str = f"out/models/parking/parking_demo_fixed_{suffix}.zip"
+animation_save_path: str = f"out/plots/animation/parking_demo_fixed_{suffix}.gif"
 gpu_id: int = 0
 
 her_kwargs = dict(n_sampled_goal=4, goal_selection_strategy="future")
@@ -30,8 +29,8 @@ her_kwargs = dict(n_sampled_goal=4, goal_selection_strategy="future")
 config = {
     "observation": {
         "type": "KinematicsGoal",
-        "features": ["x", "y", "vx", "vy", "cos_h", "sin_h"],
-        "scales": [100, 100, 5, 5, 1, 1],
+        "features": ["x", "y", "vx", "vy", "heading"],
+        "scales": [1, 1, 1, 1, 1],
         "normalize": False,
     },
     "action": {"type": "ContinuousAction"},
@@ -41,7 +40,7 @@ config = {
     "steering_range": np.deg2rad(45),
     "simulation_frequency": 15,
     "policy_frequency": 5,
-    "duration": 100,
+    "duration": 50,
     "screen_width": 600,
     "screen_height": 300,
     "screen_center": "centering_position",
@@ -87,6 +86,8 @@ if not use_saved_model:
             batch_size=1024,
             tau=0.05,
             policy_kwargs=dict(net_arch=net_arch),
+            device=device,
+            learning_starts=1000,
         )
     )
 

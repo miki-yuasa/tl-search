@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 from highway_env.envs import AbstractEnv
 from highway_env.envs.common.action import action_factory
@@ -85,9 +85,9 @@ class AdversarialParkingEnv(ParkingEnv):
             self.controlled_vehicles.append(vehicle)
 
         # Goal
-        goal_lane = self.road.network.lanes_list()[4]
-        # goal_lane = self.np_random.choice(self.road.network.lanes_list())
-        self.goal = Landmark(
+        # goal_lane = self.road.network.lanes_list()[4]
+        goal_lane = self.np_random.choice(self.road.network.lanes_list())
+        self.goal = CustomLandmark(
             self.road,
             goal_lane.position(goal_lane.length / 2, 0),
             heading=goal_lane.heading,
@@ -191,22 +191,83 @@ class AdversarialParkingEnv(ParkingEnv):
         achieved_goal = obs["achieved_goal"]
 
         obs = self.observation_type_parking.observe()
-        success = self._is_success(achieved_goal, obs["desired_goal"])
+        success = self._is_success(achieved_goal, achieved_goal + obs["desired_goal"])
         info.update({"is_success": success})
         return info
 
     def _reward(self, action: np.ndarray) -> float:
         obs = self.observation_type_parking.observe()
         # obs = obs if isinstance(obs, tuple) else (obs,)
-        reward = self.compute_reward(obs["achieved_goal"], obs["desired_goal"], {})
+        reward = self.compute_reward(
+            obs["achieved_goal"], obs["achieved_goal"] + obs["desired_goal"], {}
+        )
         reward += self.config["collision_reward"] * sum(
             v.crashed for v in self.controlled_vehicles
         )
 
-        if self.goal.hit:
-            reward += 0.12
+        # if self.goal.hit:
+        #     reward += 0.12
 
         return reward
+
+    def compute_reward(
+        self,
+        achieved_goal: NDArray[np.float_],
+        desired_goal: NDArray[np.float_],
+        info: dict,
+        p: float = 0.5,
+    ) -> np.float_ | NDArray[np.float_]:
+        """
+        Proximity to the goal is rewarded
+
+        We use a weighted p-norm
+
+        :param achieved_goal: the goal that was achieved
+        :param desired_goal: the goal that was desired
+        :param dict info: any supplementary information
+        :param p: the Lp^p norm used in the reward. Use p<1 to have high kurtosis for rewards in [0, 1]
+        :return: the corresponding reward
+        """
+
+        num_features: int = len(self.config["observation"]["features"])
+
+        achieved_goal = achieved_goal.reshape([-1, num_features])
+        desired_goal = desired_goal.reshape([-1, num_features])
+
+        # Compute the reward
+        reward: NDArray[np.float_] = np.ones((achieved_goal.shape[0], 1)) * 0
+
+        # Compute the distance between the goal and the achieved goal
+        d = np.linalg.norm(
+            achieved_goal[:, 0:2] - desired_goal[:, 0:2], axis=1
+        ).reshape(reward.shape)
+        velocity_diff = np.linalg.norm(
+            achieved_goal[:, 2:4] - desired_goal[:, 2:4], axis=1
+        ).reshape(reward.shape)
+        angle_diff = (achieved_goal[:, -1] - desired_goal[:, -1]).reshape(reward.shape)
+
+        differences: NDArray[np.float_] = np.concatenate(
+            (d, angle_diff, velocity_diff), axis=1
+        )
+
+        reward[np.where(differences[:, 0] < 1)] = 1
+        reward[
+            np.where(
+                (differences[:, 1] < np.deg2rad(10))
+                & (differences[:, 1] > np.deg2rad(-10))
+                & (differences[:, 0] < 1)
+            )
+        ] = 2
+        reward[
+            np.where(
+                (differences[:, 2] < 1)
+                & (differences[:, 1] < np.deg2rad(10))
+                & (differences[:, 1] > np.deg2rad(-10))
+                & (differences[:, 0] < 1)
+            )
+        ] = 3
+
+        return np.float_(reward) if len(reward) == 1 else reward
 
     def _is_terminated(self) -> bool:
         """The episode is over if the ego vehicle crashed or the goal is reached or time is over."""
@@ -214,16 +275,22 @@ class AdversarialParkingEnv(ParkingEnv):
         obs = self.observation_type_parking.observe()
         obs = obs if isinstance(obs, tuple) else (obs,)
         success = all(
-            self._is_success(agent_obs["achieved_goal"], agent_obs["desired_goal"])
+            self._is_success(
+                agent_obs["achieved_goal"],
+                agent_obs["desired_goal"] + agent_obs["achieved_goal"],
+            )
             for agent_obs in obs
         )
-        return bool(crashed or success)
+        return bool(success)  # bool(crashed or success)
 
-    def _is_success(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> bool:
-        return (
-            self.compute_reward(achieved_goal, desired_goal, {})
-            > -self.config["success_goal_reward"]
-        )
+    def _is_success(
+        self, achieved_goal: np.ndarray, desired_goal: np.ndarray
+    ) -> np.bool_:
+        return self.compute_reward(achieved_goal, desired_goal, {}) >= 3
+
+    def _is_truncated(self) -> bool:
+        """The episode is truncated if the time is over."""
+        return self.time >= self.config["duration"]
 
 
 class KinematicGoalVehiclesObservation(KinematicsGoalObservation):
@@ -297,7 +364,7 @@ class KinematicGoalVehiclesObservation(KinematicsGoalObservation):
         obs: dict[str, NDArray] = {
             "observation": np.ravel(veh_obs / self.scales),
             "achieved_goal": ego_obs / self.scales,
-            "desired_goal": goal / self.scales - ego_obs / self.scales,
+            "desired_goal": goal / self.scales,
         }
         return obs
 
@@ -346,3 +413,13 @@ class AbsoluteCenterEnvViewer(EnvViewer):
             return self.env.vehicle.position
         else:
             return np.array([0, 0])
+
+
+class CustomLandmark(Landmark):
+    """Landmarks of certain areas on the road that must be reached."""
+
+    def to_dict(self, origin_vehicle=None, observe_intentions=True):
+        d = super().to_dict(origin_vehicle, observe_intentions)
+        d["heading"] = self.heading
+
+        return d
