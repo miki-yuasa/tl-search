@@ -21,7 +21,9 @@ model_save_path: str = f"out/models/parking/parking_demo_fixed_{suffix}.zip"
 animation_save_path: str = f"out/plots/animation/parking_demo_fixed_{suffix}.gif"
 gpu_id: int = 0
 
-her_kwargs = dict(n_sampled_goal=4, goal_selection_strategy="future")
+her_kwargs = dict(
+    n_sampled_goal=4, goal_selection_strategy="future", copy_info_dict=True
+)
 
 
 config = {
@@ -56,38 +58,27 @@ config = {
     ],
 }
 
-
 device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
 
 env = AdversarialParkingEnv(config)
 
+
 if not use_saved_model:
-    model = (
-        PPO(
-            "MultiInputPolicy",
-            env,
-            verbose=1,
-            device=device,
-            tensorboard_log=tb_log_path,
-            policy_kwargs=dict(net_arch=net_arch),
-        )
-        if rl_algo == "ppo"
-        else SAC(
-            "MultiInputPolicy",
-            env,
-            replay_buffer_class=HerReplayBuffer,
-            replay_buffer_kwargs=her_kwargs,
-            verbose=1,
-            tensorboard_log=tb_log_path,
-            buffer_size=int(1e6),
-            learning_rate=1e-3,
-            gamma=0.95,
-            batch_size=1024,
-            tau=0.05,
-            policy_kwargs=dict(net_arch=net_arch),
-            device=device,
-            learning_starts=1000,
-        )
+    model = SAC(
+        "MultiInputPolicy",
+        env,
+        replay_buffer_class=HerReplayBuffer,
+        replay_buffer_kwargs=her_kwargs,
+        verbose=1,
+        tensorboard_log=tb_log_path,
+        buffer_size=int(1e6),
+        learning_rate=1e-3,
+        gamma=0.95,
+        batch_size=1024,
+        tau=0.05,
+        policy_kwargs=dict(net_arch=net_arch),
+        device=device,
+        learning_starts=1000,
     )
 
     model.learn(total_timesteps=total_timesteps)
@@ -96,29 +87,4 @@ if not use_saved_model:
     env.close()
 
 else:
-    model = (
-        PPO.load(model_save_path, env, device=device)
-        if rl_algo == "ppo"
-        else SAC.load(model_save_path, env, device=device)
-    )
-
-demo_env = AdversarialParkingEnv(config)
-
-obs, _ = demo_env.reset()
-print(obs)
-
-frames = []
-
-while True:
-    action = model.predict(obs, deterministic=True)[0]
-    obs, reward, terminated, truncated, info = demo_env.step(action)
-    print(reward)
-    frames.append(demo_env.render())
-    if terminated or truncated:
-        print(demo_env.controlled_vehicles[0].crashed)
-        print(obs)
-        break
-
-demo_env.close()
-
-imageio.mimsave(animation_save_path, frames, fps=15, loop=0)
+    model = SAC.load(model_save_path, env, device=device)
