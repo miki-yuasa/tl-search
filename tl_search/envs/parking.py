@@ -69,7 +69,7 @@ class AdversarialParkingEnv(ParkingEnv):
         self.action_type = action_factory(self, self.config["action"])
         self.observation_space = self.observation_type.space()
         self.action_space = self.action_type.space()
-        self.observation_type_parking = KinematicsGoalObservation(
+        self.observation_type_parking = KinematicGoalVehiclesObservation(
             self, **self.config["observation"]
         )
 

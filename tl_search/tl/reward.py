@@ -27,7 +27,10 @@ def transition_robustness(
 
 
 def tl_reward(
-    atom_rob_dict: dict[str, float], aut: TLAutomaton, curr_aut_state: int
+    atom_rob_dict: dict[str, float],
+    aut: TLAutomaton,
+    curr_aut_state: int,
+    dense_reward: bool = False,
 ) -> tuple[float, int]:
     """
     Calculate the reward of the step from a given automaton.
@@ -108,6 +111,7 @@ def tl_reward(
     alpha: float = 0.7
     beta: float = 0.5
     gamma: float = 0.01
+
     if next_aut_state == curr_aut_state:
         # non_trap_robs.remove(trans_rob)
         # reward = -gamma * (
@@ -117,8 +121,11 @@ def tl_reward(
         # reward = gamma * (
         #    beta * 1 / max(non_trap_robs) - (1 - beta) * 1 / max(trap_robs)
         # )
-
-        reward = 0
+        if dense_reward:
+            non_trap_robs.remove(trans_rob)
+            reward = -gamma / max(non_trap_robs)
+        else:
+            reward = 0
     else:
         if trans_rob in non_trap_robs:
             reward = trans_rob  # alpha * trans_rob - (1 - alpha) * max(trap_robs)
