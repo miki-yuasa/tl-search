@@ -109,22 +109,22 @@ class AdversarialParkingEnv(ParkingEnv):
             ("b", "c", 1),
         ]
         for i in range(self.config["vehicles_count"]):
-            # while True:
-            #     lane_id = self.np_random.choice(
-            #         range(0, int(len(self.road.network.lanes_list()) / 2))
-            #     )
-            #     lane_index = (
-            #         ("a", "b", lane_id)
-            #         if self.np_random.uniform() >= 0.5
-            #         else ("b", "c", lane_id)
-            #     )
+            while True:
+                lane_id = self.np_random.choice(
+                    range(0, int(len(self.road.network.lanes_list()) / 2))
+                )
+                lane_index = (
+                    ("a", "b", lane_id)
+                    if self.np_random.uniform() >= 0.5
+                    else ("b", "c", lane_id)
+                )
 
-            #     if (
-            #         goal_lane != self.road.network.get_lane(lane_index)
-            #         and lane_index not in selected_lane_indexes
-            #     ):
-            #         selected_lane_indexes.append(lane_index)
-            #         break
+                if (
+                    goal_lane != self.road.network.get_lane(lane_index)
+                    and lane_index not in selected_lane_indexes
+                ):
+                    selected_lane_indexes.append(lane_index)
+                    break
 
             v = Vehicle.make_on_lane(self.road, selected_lane_indexes[i], 4, speed=0)
             self.road.vehicles.append(v)
@@ -148,6 +148,8 @@ class AdversarialParkingEnv(ParkingEnv):
         # Walls
         if self.config["add_walls"]:
             width, height = 70, 42
+            self.wall_width: float = width
+            self.wall_height: float = height
             for y in [-height / 2, height / 2]:
                 obstacle = Obstacle(self.road, [0, y])
                 obstacle.LENGTH, obstacle.WIDTH = (width, 1)
@@ -209,65 +211,6 @@ class AdversarialParkingEnv(ParkingEnv):
 
         return reward
 
-    # def compute_reward(
-    #     self,
-    #     achieved_goal: NDArray[np.float_],
-    #     desired_goal: NDArray[np.float_],
-    #     info: dict,
-    #     p: float = 0.5,
-    # ) -> np.float_ | NDArray[np.float_]:
-    #     """
-    #     Proximity to the goal is rewarded
-
-    #     We use a weighted p-norm
-
-    #     :param achieved_goal: the goal that was achieved
-    #     :param desired_goal: the goal that was desired
-    #     :param dict info: any supplementary information
-    #     :param p: the Lp^p norm used in the reward. Use p<1 to have high kurtosis for rewards in [0, 1]
-    #     :return: the corresponding reward
-    #     """
-
-    #     num_features: int = len(self.config["observation"]["features"])
-
-    #     achieved_goal = achieved_goal.reshape([-1, num_features])
-    #     desired_goal = desired_goal.reshape([-1, num_features])
-
-    #     # Compute the reward
-    #     reward: NDArray[np.float_] = np.ones((achieved_goal.shape[0], 1)) * 0
-
-    #     # Compute the distance between the goal and the achieved goal
-    #     d = np.linalg.norm(
-    #         achieved_goal[:, 0:2] - desired_goal[:, 0:2], axis=1
-    #     ).reshape(reward.shape)
-    #     velocity_diff = np.linalg.norm(
-    #         achieved_goal[:, 2:4] - desired_goal[:, 2:4], axis=1
-    #     ).reshape(reward.shape)
-    #     angle_diff = (achieved_goal[:, -1] - desired_goal[:, -1]).reshape(reward.shape)
-
-    #     differences: NDArray[np.float_] = np.concatenate(
-    #         (d, angle_diff, velocity_diff), axis=1
-    #     )
-
-    #     reward[np.where(differences[:, 0] < 1)] = 1
-    #     reward[
-    #         np.where(
-    #             (differences[:, 1] < np.deg2rad(10))
-    #             & (differences[:, 1] > np.deg2rad(-10))
-    #             & (differences[:, 0] < 1)
-    #         )
-    #     ] = 2
-    #     reward[
-    #         np.where(
-    #             (differences[:, 2] < 1)
-    #             & (differences[:, 1] < np.deg2rad(10))
-    #             & (differences[:, 1] > np.deg2rad(-10))
-    #             & (differences[:, 0] < 1)
-    #         )
-    #     ] = 3
-
-    #     return np.float_(reward) if len(reward) == 1 else reward
-
     def _is_terminated(self) -> bool:
         """The episode is over if the ego vehicle crashed or the goal is reached or time is over."""
         crashed = any(vehicle.crashed for vehicle in self.controlled_vehicles)
@@ -278,19 +221,7 @@ class AdversarialParkingEnv(ParkingEnv):
             for agent_obs in obs
         )
 
-        # if crashed:
-        #     print("Crashed")
-        # elif success:
-        #     print("Success")
-        # else:
-        #     pass
-
         return bool(crashed or success)
-
-    # def _is_success(
-    #     self, achieved_goal: np.ndarray, desired_goal: np.ndarray
-    # ) -> np.bool_:
-    #     return self.compute_reward(achieved_goal, desired_goal, {}) >= 3
 
     def _is_truncated(self) -> bool:
         """The episode is truncated if the time is over."""
@@ -371,107 +302,6 @@ class KinematicGoalVehiclesObservation(KinematicsGoalObservation):
             "desired_goal": goal / self.scales,
         }
         return obs
-
-
-class QuasiContinuousAction(ActionType):
-    """
-    An continuous action space for throttle and/or steering angle.
-
-    If both throttle and steering are enabled, they are set in this order: [throttle, steering]
-
-    The space intervals are always [-1, 1], but are mapped to throttle/steering intervals through configurations.
-    """
-
-    ACCELERATION_RANGE = (-5, 5.0)
-    """Acceleration range: [-x, x], in m/s²."""
-
-    STEERING_RANGE = (-np.pi / 4, np.pi / 4)
-    """Steering angle range: [-x, x], in rad."""
-
-    def __init__(
-        self,
-        env: "AbstractEnv",
-        acceleration_range: Optional[tuple[float, float]] = None,
-        steering_range: Optional[tuple[float, float]] = None,
-        speed_range: Optional[tuple[float, float]] = None,
-        longitudinal: bool = True,
-        lateral: bool = True,
-        dynamical: bool = False,
-        clip: bool = True,
-        **kwargs,
-    ) -> None:
-        """
-        Create a continuous action space.
-
-        Parameters
-        ----------
-
-        env: the environment
-        acceleration_range: the range of acceleration values [m/s²]
-        steering_range: the range of steering values [rad]
-        speed_range: the range of reachable speeds [m/s]
-        longitudinal: enable throttle control
-        lateral: enable steering control
-        dynamical: whether to simulate dynamics (i.e. friction) rather than kinematics
-        clip: clip action to the defined range
-        """
-        super().__init__(env)
-        self.acceleration_range = (
-            acceleration_range if acceleration_range else self.ACCELERATION_RANGE
-        )
-        self.steering_range = steering_range if steering_range else self.STEERING_RANGE
-        self.speed_range = speed_range
-        self.lateral = lateral
-        self.longitudinal = longitudinal
-        if not self.lateral and not self.longitudinal:
-            raise ValueError(
-                "Either longitudinal and/or lateral control must be enabled"
-            )
-        self.dynamical = dynamical
-        self.clip = clip
-        self.size = 2 if self.lateral and self.longitudinal else 1
-        self.last_action = np.zeros(self.size)
-
-    def space(self) -> spaces.Box:
-        return spaces.Box(-1.0, 1.0, shape=(self.size,), dtype=np.float32)
-
-    @property
-    def vehicle_class(self) -> Callable:
-        return Vehicle if not self.dynamical else BicycleVehicle
-
-    def act(self, action: np.ndarray) -> None:
-        if self.clip:
-            action = np.clip(action, -1, 1)
-        if self.speed_range:
-            self.controlled_vehicle.MIN_SPEED, self.controlled_vehicle.MAX_SPEED = (
-                self.speed_range
-            )
-        if self.longitudinal and self.lateral:
-            self.controlled_vehicle.act(
-                {
-                    "acceleration": utils.lmap(
-                        action[0], [-1, 1], self.acceleration_range
-                    ),
-                    "steering": utils.lmap(action[1], [-1, 1], self.steering_range),
-                }
-            )
-        elif self.longitudinal:
-            self.controlled_vehicle.act(
-                {
-                    "acceleration": utils.lmap(
-                        action[0], [-1, 1], self.acceleration_range
-                    ),
-                    "steering": 0,
-                }
-            )
-        elif self.lateral:
-            self.controlled_vehicle.act(
-                {
-                    "acceleration": 0,
-                    "steering": utils.lmap(action[0], [-1, 1], self.steering_range),
-                }
-            )
-        self.last_action = action
 
 
 class RandomVehicle(Vehicle):
