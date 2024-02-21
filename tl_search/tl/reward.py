@@ -122,7 +122,7 @@ def tl_reward(
         # Weight for reward calculation
         alpha: float = 0.7
         beta: float = 0.5
-        gamma: float = 0.01
+        gamma: float = 0.0001
 
         if next_aut_state == curr_aut_state:
             # non_trap_robs.remove(trans_rob)

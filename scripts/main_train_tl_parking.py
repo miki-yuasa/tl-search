@@ -11,7 +11,7 @@ use_saved_model: bool = False
 
 tl_spec: str = "F(psi_ego_goal) & G(!psi_ego_adv & !psi_ego_wall)"
 
-total_timesteps = 1000_000
+total_timesteps = 300_000
 net_arch: list[int] = [512 for _ in range(3)]
 
 rl_algo: Literal["sac"] = "sac"
