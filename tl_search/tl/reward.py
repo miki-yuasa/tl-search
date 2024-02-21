@@ -31,6 +31,7 @@ def tl_reward(
     aut: TLAutomaton,
     curr_aut_state: int,
     dense_reward: bool = False,
+    terminal_state_reward: float = 5,
 ) -> tuple[float, int]:
     """
     Calculate the reward of the step from a given automaton.
@@ -44,101 +45,114 @@ def tl_reward(
     reward (float): reward of the step based on the MDP and automaton states.
     next_aut_state (int): the resultant automaton state
     """
-    curr_edge = aut.edges[curr_aut_state]
-    transitions = curr_edge.transitions
 
-    # Calculate robustnesses of the transitions
-    robs, non_trap_robs, trap_robs = transition_robustness(transitions, atom_rob_dict)
+    if curr_aut_state in aut.goal_states:
+        return (terminal_state_reward, curr_aut_state)
+    elif curr_aut_state in aut.trap_states:
+        return (-terminal_state_reward, curr_aut_state)
+    else:
 
-    positive_robs: list[RobustnessCounter] = [
-        RobustnessCounter(rob, i)
-        for i, rob in enumerate(robs)
-        if int(math.copysign(1, rob)) == 1
-    ]
+        curr_edge = aut.edges[curr_aut_state]
+        transitions = curr_edge.transitions
 
-    # Check if there is only one positive transition robustness unless there are
-    # multiple 0's
-    if len(positive_robs) != 1:
-        is_all_positive_zero: bool = all(
-            int(pos_rob.robustness) == 0 for pos_rob in positive_robs
+        # Calculate robustnesses of the transitions
+        robs, non_trap_robs, trap_robs = transition_robustness(
+            transitions, atom_rob_dict
         )
-        if is_all_positive_zero:
-            is_containing_trap_state: bool = False
-            trap_index = 0
-            for i, pos_rob in enumerate(positive_robs):
-                if transitions[pos_rob.ind].is_trapped_next:
-                    is_containing_trap_state = True
-                    trap_index = i
-                    break
+
+        positive_robs: list[RobustnessCounter] = [
+            RobustnessCounter(rob, i)
+            for i, rob in enumerate(robs)
+            if int(math.copysign(1, rob)) == 1
+        ]
+
+        # Check if there is only one positive transition robustness unless there are
+        # multiple 0's
+        if len(positive_robs) != 1:
+            is_all_positive_zero: bool = all(
+                int(pos_rob.robustness) == 0 for pos_rob in positive_robs
+            )
+            if is_all_positive_zero:
+                is_containing_trap_state: bool = False
+                trap_index = 0
+                for i, pos_rob in enumerate(positive_robs):
+                    if transitions[pos_rob.ind].is_trapped_next:
+                        is_containing_trap_state = True
+                        trap_index = i
+                        break
+                    else:
+                        pass
+
+                if is_containing_trap_state:
+                    positive_robs = [positive_robs[trap_index]]
                 else:
-                    pass
-
-            if is_containing_trap_state:
-                positive_robs = [positive_robs[trap_index]]
-            else:
-                next_states: list[AutomatonStateCounter] = []
-                for pos_rob_ind, pos_rob in enumerate(positive_robs):
-                    next_states.append(
-                        AutomatonStateCounter(
-                            transitions[pos_rob.ind].next_state, pos_rob_ind
+                    next_states: list[AutomatonStateCounter] = []
+                    for pos_rob_ind, pos_rob in enumerate(positive_robs):
+                        next_states.append(
+                            AutomatonStateCounter(
+                                transitions[pos_rob.ind].next_state, pos_rob_ind
+                            )
                         )
-                    )
-                next_state_inds: list[int] = [
-                    state.ind for state in next_states if state.ind != curr_aut_state
-                ]
-                if next_state_inds:
-                    positive_robs = [positive_robs[random.choice(next_state_inds)]]
-                else:  # should only contain the current state as the next state
-                    positive_robs = [random.choice(positive_robs)]
+                    next_state_inds: list[int] = [
+                        state.ind
+                        for state in next_states
+                        if state.ind != curr_aut_state
+                    ]
+                    if next_state_inds:
+                        positive_robs = [positive_robs[random.choice(next_state_inds)]]
+                    else:  # should only contain the current state as the next state
+                        positive_robs = [random.choice(positive_robs)]
 
+            else:
+                print("Error: Only one of the transition robustnesses can be positive.")
+                print("The positive transitions were:")
+                print(
+                    [transitions[rob[1]].condition for rob in positive_robs],
+                    file=sys.stderr,
+                )
+                sys.exit(1)
         else:
-            print("Error: Only one of the transition robustnesses can be positive.")
-            print("The positive transitions were:")
-            print(
-                [transitions[rob[1]].condition for rob in positive_robs],
-                file=sys.stderr,
-            )
-            sys.exit(1)
-    else:
-        pass
-    positive_rob: RobustnessCounter = deque(positive_robs).pop()
-    trans_rob: float = positive_rob.robustness
-    next_aut_state: int = transitions[positive_rob.ind].next_state
+            pass
+        positive_rob: RobustnessCounter = deque(positive_robs).pop()
+        trans_rob: float = positive_rob.robustness
+        next_aut_state: int = transitions[positive_rob.ind].next_state
 
-    # Calculate the reward
-    reward: float
-    # Weight for reward calculation
-    alpha: float = 0.7
-    beta: float = 0.5
-    gamma: float = 0.01
+        # Calculate the reward
+        reward: float
+        # Weight for reward calculation
+        alpha: float = 0.7
+        beta: float = 0.5
+        gamma: float = 0.01
 
-    if next_aut_state == curr_aut_state:
-        # non_trap_robs.remove(trans_rob)
-        # reward = -gamma * (
-        #    beta * 1 / max(non_trap_robs) - (1 - beta) * 1 / max(trap_robs)
-        # )
+        if next_aut_state == curr_aut_state:
+            # non_trap_robs.remove(trans_rob)
+            # reward = -gamma * (
+            #    beta * 1 / max(non_trap_robs) - (1 - beta) * 1 / max(trap_robs)
+            # )
 
-        # reward = gamma * (
-        #    beta * 1 / max(non_trap_robs) - (1 - beta) * 1 / max(trap_robs)
-        # )
-        if dense_reward:
-            non_trap_robs.remove(trans_rob)
-            reward = -gamma / max(non_trap_robs)
+            # reward = gamma * (
+            #    beta * 1 / max(non_trap_robs) - (1 - beta) * 1 / max(trap_robs)
+            # )
+            if dense_reward:
+                non_trap_robs.remove(trans_rob)
+                reward = gamma * max(non_trap_robs)
+            else:
+                reward = 0
         else:
-            reward = 0
-    else:
-        if trans_rob in non_trap_robs:
-            reward = trans_rob  # alpha * trans_rob - (1 - alpha) * max(trap_robs)
-        elif trans_rob in trap_robs:
-            reward = -trans_rob  # -(1 - alpha) * max(non_trap_robs) - alpha * trans_rob
-        else:
-            print(
-                "Error: the transition robustness doesn't exit in the robustness set.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+            if trans_rob in non_trap_robs:
+                reward = trans_rob  # alpha * trans_rob - (1 - alpha) * max(trap_robs)
+            elif trans_rob in trap_robs:
+                reward = (
+                    -trans_rob
+                )  # -(1 - alpha) * max(non_trap_robs) - alpha * trans_rob
+            else:
+                print(
+                    "Error: the transition robustness doesn't exit in the robustness set.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
-    return (reward, next_aut_state)
+        return (reward, next_aut_state)
 
 
 def penalty(trap_robustness: tuple[float], single_penalty: float = -5) -> float:

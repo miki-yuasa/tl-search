@@ -1,6 +1,6 @@
 from typing import Any, Callable
 
-from gymnasium.spaces.space import Space, 
+from gymnasium.spaces.space import Space
 from gymnasium import spaces
 from highway_env.envs.common.action import action_factory
 from highway_env.envs.parking_env import ParkingEnv
@@ -19,35 +19,39 @@ from tl_search.tl.tl_parser import tl2rob
 
 class TLAdversarialParkingEnv(AdversarialParkingEnv):
     obs_info: list[tuple[str, list[str], Callable]] = [
-        ("d_ego_goal", ["d_ego_goal"], lambda d_ego_goal: d_ego_goal), 
+        ("d_ego_goal", ["d_ego_goal"], lambda d_ego_goal: d_ego_goal),
         ("d_ego_adv", ["d_ego_adv"], lambda d_ego_adv: d_ego_adv),
         ("d_ego_wall", ["d_ego_wall"], lambda d_ego_wall: d_ego_wall),
-        ]
+    ]
     obs_props: list[ObsProp] = [
         ObsProp(name, args, func) for name, args, func in obs_info
     ]
 
     atom_pred_dict: dict[str, str] = {
-        "psi_ego_goal": "d_ba_ra < {}".format(1),
-        "psi_ego_adv": "d_ba_bf < {}".format(3),
-        "psi_ego_wall": "d_ba_rf < {}".format(3),
+        "psi_ego_goal": "d_ego_goal < {}".format(1),
+        "psi_ego_adv": "d_ego_adv < {}".format(3),
+        "psi_ego_wall": "d_ego_wall < {}".format(3),
     }
 
     def __init__(
         self,
         tl_spec: str,
-        obs_props: list[ObsProp]|None = None,
-        atom_pred_dict: dict[str, str]= None,
         config: dict | None = None,
+        obs_props: list[ObsProp] | None = None,
+        atom_pred_dict: dict[str, str] | None = None,
         render_mode: str | None = "rgb_array",
     ) -> None:
+
+        self.aut = TLAutomaton(tl_spec, self.atom_pred_dict, self.obs_props)
+
         super().__init__(config, render_mode)
 
         self._tl_spec: str = tl_spec
         self._obs_props = obs_props if obs_props is not None else self.obs_props
-        self._atom_pred_dict = atom_pred_dict if atom_pred_dict is not None else self.atom_pred_dict
-
-        self.aut = TLAutomaton(tl_spec, self.atom_pred_dict,   self._obs_props)
+        self._atom_pred_dict = (
+            atom_pred_dict if atom_pred_dict is not None else self.atom_pred_dict
+        )
+        self._dense_reward: bool = self.config["dense_reward"]
 
     def define_spaces(self) -> None:
         self.observation_type = TLKinematicGoalVehiclesObservation(
@@ -60,8 +64,9 @@ class TLAdversarialParkingEnv(AdversarialParkingEnv):
             self, **self.config["observation"]
         )
 
-    def reset(self) -> tuple[dict[str, float], dict[str, float]]:
-        obs, info = super().reset()
+    def reset(self, *args, **kwargs) -> tuple[dict[str, float], dict[str, float]]:
+        self._aut_state: int = self.aut.start
+        obs, info = super().reset(*args, **kwargs)
 
         self._aut_state: int = self.aut.start
         self._aut_state_traj: list[int] = [self._aut_state]
@@ -89,7 +94,7 @@ class TLAdversarialParkingEnv(AdversarialParkingEnv):
         """
 
         # Create kinematic information dictionary
-        infos = info if isinstance(info, list) else [info]
+        infos = info if hasattr(info, "size") else [info]
 
         num_features: int = len(self.config["observation"]["features"])
 
@@ -113,41 +118,55 @@ class TLAdversarialParkingEnv(AdversarialParkingEnv):
         wall_min_x, wall_max_x = -wall_width / 2, wall_width / 2
         wall_min_y, wall_max_y = -wall_height / 2, wall_height / 2
 
-        d_ego_wall = np.min(
-            np.concatenate(
-                [
-                    np.abs(ego_locs[:, 0] - wall_min_x),
-                    np.abs(ego_locs[:, 0] - wall_max_x),
-                    np.abs(ego_locs[:, 1] - wall_min_y),
-                    np.abs(ego_locs[:, 1] - wall_max_y),
-                ],
+        d_ego_wall = np.array(
+            np.min(
+                np.concatenate(
+                    [
+                        np.abs(ego_locs[:, 0] - wall_min_x).reshape([-1, 1]),
+                        np.abs(ego_locs[:, 0] - wall_max_x).reshape([-1, 1]),
+                        np.abs(ego_locs[:, 1] - wall_min_y).reshape([-1, 1]),
+                        np.abs(ego_locs[:, 1] - wall_max_y).reshape([-1, 1]),
+                    ],
+                    axis=-1,
+                ),
                 axis=-1,
-            ),
-            axis=-1,
-        )
-
-        kin_dict = {
-            "d_ego_goal": d_ego_goal,
-            "d_ego_adv": d_ego_adv,
-            "d_ego_wall": d_ego_wall,
-        }
-
-        atom_rob_dict, obs_dict = atom_tl_ob2rob(self.aut, kin_dict)
+            )
+        ).reshape(*d_ego_adv.shape)
 
         rewards: list[float] = []
 
         for i in range(len(infos)):
-            atom_rob_dict_tmp = {key: val[i] for key, val in atom_rob_dict.items()}
-            reward, _ = tl_reward(atom_rob_dict_tmp, self.aut, aut_states[i])
+            kin_dict = {
+                "d_ego_goal": d_ego_goal[i],
+                "d_ego_adv": d_ego_adv[i],
+                "d_ego_wall": d_ego_wall[i],
+            }
+
+            atom_rob_dict, obs_dict = atom_tl_ob2rob(self.aut, kin_dict)
+            reward, next_aut_state = tl_reward(
+                atom_rob_dict, self.aut, aut_states[i], self._dense_reward
+            )
 
             rewards.append(reward)
 
         # Change the shape of the rewards
-        rewards_np:NDArray[np.float_] = np.array(rewards)
+        rewards_np: NDArray[np.float_] = np.array(rewards)
         rewards_np = rewards_np.reshape(-1, 1)
 
         output_reward = rewards_np[0] if rewards_np.size == 1 else rewards_np
-        
+
+        if rewards_np.size == 1:
+            self._aut_state = next_aut_state
+            self._aut_state_traj.append(next_aut_state)
+            if next_aut_state in self.aut.goal_states:
+                self._status = "goal"
+            elif next_aut_state in self.aut.trap_states:
+                self._status = "trap"
+            else:
+                self._status = "intermediate"
+        else:
+            pass
+
         return output_reward
 
     def _reward(self, action: np.ndarray) -> float:
@@ -168,15 +187,21 @@ class TLAdversarialParkingEnv(AdversarialParkingEnv):
         obs = self.observation_type_parking.observe()
         success = self._is_success(achieved_goal, obs["desired_goal"])
         info.update({"is_success": success})
-        info.update({"adversarial_agent_obs": obs["observation"][1, :]})
+        info.update(
+            {
+                "adversarial_agent_obs": obs["observation"].reshape(
+                    -1, len(self.config["observation"]["features"])
+                )[1, :]
+            }
+        )
         info.update({"aut_state": self._aut_state})
         return info
 
     def _is_success(self, achieved_goal: NDArray, desired_goal: NDArray) -> bool:
         return self._aut_state in self.aut.goal_states
-    
+
     def _is_terminated(self) -> bool:
-        terminated:bool =  super()._is_terminated()
+        terminated: bool = super()._is_terminated()
 
         in_trap_state: bool = self._aut_state in self.aut.trap_states
 
@@ -218,7 +243,7 @@ def atom_tl_ob2rob(
 
 class TLKinematicGoalVehiclesObservation(KinematicGoalVehiclesObservation):
     def space(self) -> Space:
-        obs = self.observe()
+        obs = super().observe()
         return spaces.Dict(
             {
                 "observation": spaces.Box(
@@ -239,10 +264,10 @@ class TLKinematicGoalVehiclesObservation(KinematicGoalVehiclesObservation):
                     shape=obs["desired_goal"].shape,
                     dtype=np.float64,
                 ),
-                "aut_state": spaces.Discrete(len(self.env.aut.num_states)),
+                "aut_state": spaces.Discrete(self.env.aut.num_states),
             }
         )
-    
+
     def observe(self) -> dict[str, Any]:
         obs = super().observe()
         obs["aut_state"] = self.env._aut_state

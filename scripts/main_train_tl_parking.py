@@ -3,20 +3,25 @@ import numpy as np
 from stable_baselines3 import PPO, SAC, HerReplayBuffer
 import torch
 import imageio
+from tl_search.common.io import spec2title
 
-from tl_search.envs.parking import AdversarialParkingEnv
+from tl_search.envs.tl_parking import TLAdversarialParkingEnv
 
 use_saved_model: bool = False
+
+tl_spec: str = "F(psi_ego_goal) & G(!psi_ego_adv & !psi_ego_wall)"
 
 total_timesteps = 1000_000
 net_arch: list[int] = [512 for _ in range(3)]
 
-rl_algo: Literal["ppo", "sac"] = "sac"
+rl_algo: Literal["sac"] = "sac"
 
-tb_log_path: str = "out/logs/parking_demo"
+tb_log_path: str = "out/logs/tl_parking"
 
 net_arch_str = "_".join(map(str, net_arch))
-suffix: str = f"{rl_algo}_{net_arch_str}_timesteps_{total_timesteps/1_000_000}M_adv"
+suffix: str = (
+    f"{rl_algo}_{net_arch_str}_timesteps_{total_timesteps/1_000_000}M_tl_{spec2title(tl_spec)}"
+)
 model_save_path: str = f"out/models/parking/parking_demo_fixed_{suffix}.zip"
 animation_save_path: str = f"out/plots/animation/parking_demo_fixed_{suffix}.gif"
 gpu_id: int = 0
@@ -30,7 +35,7 @@ config = {
     "observation": {
         "type": "KinematicsGoal",
         "features": ["x", "y", "vx", "vy", "cos_h", "sin_h"],  # "heading"],
-        "scales": [100, 100, 5, 5, 1, 1],
+        "scales": [1, 1, 5, 5, 1, 1],
         "normalize": False,
     },
     "action": {"type": "ContinuousAction"},
@@ -56,12 +61,13 @@ config = {
         {"spawn_point": [30, -4], "heading": np.pi, "speed": 5},
         {"spawn_point": [30, -4], "heading": np.pi, "speed": 5},
     ],
+    "dense_reward": True,
 }
+
 
 device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
 
-env = AdversarialParkingEnv(config)
-
+env = TLAdversarialParkingEnv(tl_spec, config)
 
 if not use_saved_model:
     model = SAC(
@@ -88,3 +94,24 @@ if not use_saved_model:
 
 else:
     model = SAC.load(model_save_path, env, device=device)
+
+demo_env = TLAdversarialParkingEnv(config)
+
+obs, _ = demo_env.reset()
+print(obs)
+
+frames = []
+
+while True:
+    action = model.predict(obs, deterministic=True)[0]
+    obs, reward, terminated, truncated, info = demo_env.step(action)
+    print(reward)
+    frames.append(demo_env.render())
+    if terminated or truncated:
+        print(demo_env.controlled_vehicles[0].crashed)
+        print(obs)
+        break
+
+demo_env.close()
+
+imageio.mimsave(animation_save_path, frames, fps=15, loop=0)
