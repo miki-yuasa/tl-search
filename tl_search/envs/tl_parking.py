@@ -28,9 +28,9 @@ class TLAdversarialParkingEnv(AdversarialParkingEnv):
     ]
 
     atom_pred_dict: dict[str, str] = {
-        "psi_ego_goal": "d_ego_goal < {}".format(1),
-        "psi_ego_adv": "d_ego_adv < {}".format(3),
-        "psi_ego_wall": "d_ego_wall < {}".format(3),
+        "psi_ego_goal": "d_ego_goal < {}".format(3),
+        "psi_ego_adv": "d_ego_adv < {}".format(6),
+        "psi_ego_wall": "d_ego_wall < {}".format(6),
     }
 
     def __init__(

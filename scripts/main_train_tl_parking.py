@@ -11,7 +11,7 @@ use_saved_model: bool = False
 
 tl_spec: str = "F(psi_ego_goal) & G(!psi_ego_adv & !psi_ego_wall)"
 
-total_timesteps = 300_000
+total_timesteps = 500_000
 net_arch: list[int] = [512 for _ in range(3)]
 
 rl_algo: Literal["sac"] = "sac"
@@ -20,7 +20,7 @@ tb_log_path: str = "out/logs/tl_parking"
 
 net_arch_str = "_".join(map(str, net_arch))
 suffix: str = (
-    f"{rl_algo}_{net_arch_str}_timesteps_{total_timesteps/1_000_000}M_tl_{spec2title(tl_spec)}"
+    f"{rl_algo}_{net_arch_str}_timesteps_{total_timesteps/1_000_000}M_tl_{spec2title(tl_spec)}_scaled"
 )
 model_save_path: str = f"out/models/parking/parking_demo_fixed_{suffix}.zip"
 animation_save_path: str = f"out/plots/animation/parking_demo_fixed_{suffix}.gif"
@@ -95,7 +95,7 @@ if not use_saved_model:
 else:
     model = SAC.load(model_save_path, env, device=device)
 
-demo_env = TLAdversarialParkingEnv(config)
+demo_env = TLAdversarialParkingEnv(tl_spec, config)
 
 obs, _ = demo_env.reset()
 print(obs)
