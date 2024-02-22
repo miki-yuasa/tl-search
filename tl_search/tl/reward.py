@@ -140,7 +140,9 @@ def tl_reward(
                 reward = 0
         else:
             if trans_rob in non_trap_robs:
-                reward = trans_rob  # alpha * trans_rob - (1 - alpha) * max(trap_robs)
+                reward = (
+                    10 * trans_rob
+                )  # alpha * trans_rob - (1 - alpha) * max(trap_robs)
             elif trans_rob in trap_robs:
                 reward = (
                     -trans_rob
