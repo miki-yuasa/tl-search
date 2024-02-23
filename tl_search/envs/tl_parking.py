@@ -209,7 +209,7 @@ class TLAdversarialParkingEnv(AdversarialParkingEnv):
 
 
 def atom_tl_ob2rob(
-    aut: TLAutomaton, kin_dict: dict[str, NDArray[np.float_]]
+    aut: TLAutomaton, kin_dict: dict[str, NDArray[np.float_] | np.float_]
 ) -> tuple[dict[str, float], dict[str, float]]:
     """
     Compute robustnesses (rho) of the atomic TL porlocitions (psi) based on
