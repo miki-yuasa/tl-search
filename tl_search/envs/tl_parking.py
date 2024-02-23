@@ -18,19 +18,16 @@ from tl_search.tl.tl_parser import tl2rob
 
 
 class TLAdversarialParkingEnv(AdversarialParkingEnv):
-    obs_info: list[tuple[str, list[str], Callable]] = [
-        ("d_ego_goal", ["d_ego_goal"], lambda d_ego_goal: d_ego_goal),
-        ("d_ego_adv", ["d_ego_adv"], lambda d_ego_adv: d_ego_adv),
-        ("d_ego_wall", ["d_ego_wall"], lambda d_ego_wall: d_ego_wall),
-    ]
     obs_props: list[ObsProp] = [
-        ObsProp(name, args, func) for name, args, func in obs_info
+        ObsProp("d_ego_goal", ["d_ego_goal"], lambda d_ego_goal: d_ego_goal),
+        ObsProp("d_ego_adv", ["d_ego_adv"], lambda d_ego_adv: d_ego_adv),
+        ObsProp("d_ego_wall", ["d_ego_wall"], lambda d_ego_wall: d_ego_wall),
     ]
 
     atom_pred_dict: dict[str, str] = {
-        "psi_ego_goal": "d_ego_goal < {}".format(3),
-        "psi_ego_adv": "d_ego_adv < {}".format(6),
-        "psi_ego_wall": "d_ego_wall < {}".format(6),
+        "psi_ego_goal": "d_ego_goal < {}".format(2),
+        "psi_ego_adv": "d_ego_adv < {}".format(4),
+        "psi_ego_wall": "d_ego_wall < {}".format(5),
     }
 
     def __init__(
@@ -191,11 +188,41 @@ class TLAdversarialParkingEnv(AdversarialParkingEnv):
             {
                 "adversarial_agent_obs": obs["observation"].reshape(
                     -1, len(self.config["observation"]["features"])
-                )[1, :]
+                )[-1, :]
             }
         )
         info.update({"aut_state": self._aut_state})
         return info
+
+    def step(
+        self, action: int | NDArray
+    ) -> tuple[dict[str, Any], float, bool, bool, dict]:
+        """
+        Perform an action and step the environment dynamics.
+
+        The action is executed by the ego-vehicle, and all other vehicles on the road performs their default behaviour
+        for several simulation timesteps until the next decision making step.
+
+        :param action: the action performed by the ego-vehicle
+        :return: a tuple (observation, reward, terminated, truncated, info)
+        """
+        if self.road is None or self.vehicle is None:
+            raise NotImplementedError(
+                "The road and vehicle must be initialized in the environment implementation"
+            )
+
+        self.time += 1 / self.config["policy_frequency"]
+        self._simulate(action)
+
+        reward = self._reward(action)
+        obs = self.observation_type.observe()
+        terminated = self._is_terminated()
+        truncated = self._is_truncated()
+        info = self._info(obs, action)
+        if self.render_mode == "human":
+            self.render()
+
+        return obs, reward, terminated, truncated, info
 
     def _is_success(self, achieved_goal: NDArray, desired_goal: NDArray) -> bool:
         return self._aut_state in self.aut.goal_states

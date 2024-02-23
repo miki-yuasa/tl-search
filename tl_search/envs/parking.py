@@ -279,7 +279,7 @@ class KinematicGoalVehiclesObservation(KinematicsGoalObservation):
         origin = self.observer_vehicle
         all_df = pd.concat(
             [
-                ego_df,
+                # ego_df,
                 pd.DataFrame.from_records(
                     [
                         v.to_dict(origin, observe_intentions=False)
