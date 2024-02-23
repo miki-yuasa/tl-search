@@ -428,50 +428,46 @@ def search_train_evaluate(
 def train_evaluate_multiprocess(
     num_processes: int,
     num_replicates: int,
-    n_envs: int,
-    seeds: list[int],
     total_time_steps: int,
     model_save_path: str,
     learning_curve_path: str,
     animation_save_path: str | None,
     device: torch.device | str,
     window: int,
-    target_action_probs_list: list[NDArray],
+    target_gaus_means_list: list[NDArray[np.float_]],
+    target_gaus_stds_list: list[NDArray[np.float_]],
     target_trap_masks: list[NDArray],
-    field_obj_list: list[FieldObj],
+    obs_list: list[dict[str, Any]],
     data_save_path: str,
     tl_specs: list[str],
     obs_props: list[ObsProp],
-    atom_prep_dict: dict[str, str],
-    enemy_policy_mode: EnemyPolicyMode,
-    map_path: str,
-    tuned_param: dict[str, float],
-    default_env_args: TLMultigridDefaultArgs | None = None,
+    atom_pred_dict: dict[str, str],
+    sac_kwargs: dict[str, Any],
+    replay_buffer_kwargs: dict[str, Any],
+    env_config: dict[str, Any] | None = None,
     warm_start_path: str | None = None,
     kl_div_suffix: str | None = None,
 ) -> tuple[list[float], list[float], list[float]]:
     inputs = [
         (
             num_replicates,
-            n_envs,
-            seeds,
             total_time_steps,
             model_save_path,
             learning_curve_path,
             animation_save_path,
             device,
             window,
-            target_action_probs_list,
+            target_gaus_means_list,
+            target_gaus_stds_list,
             target_trap_masks,
-            field_obj_list,
+            obs_list,
             data_save_path,
             tl_spec,
             obs_props,
-            atom_prep_dict,
-            enemy_policy_mode,
-            map_path,
-            tuned_param,
-            default_env_args,
+            atom_pred_dict,
+            sac_kwargs,
+            replay_buffer_kwargs,
+            env_config,
             warm_start_path,
             kl_div_suffix,
         )
@@ -498,46 +494,29 @@ def train_evaluate_multiprocess(
 
 def train_evaluate(
     num_replicates: int,
-    n_envs: int,
-    seeds: list[int],
     total_time_steps: int,
     model_save_path: str,
     learning_curve_path: str,
     animation_save_path: str | None,
     device: torch.device | str,
     window: int,
-    target_action_probs_list: list[NDArray],
+    target_gaus_means_list: list[NDArray[np.float_]],
+    target_gaus_stds_list: list[NDArray[np.float_]],
     target_trap_masks: list[NDArray],
-    field_obj_list: list[FieldObj],
+    obs_list: list[dict[str, Any]],
     data_save_path: str,
     tl_spec: str,
     obs_props: list[ObsProp],
-    atom_prep_dict: dict[str, str],
-    enemy_policy_mode: EnemyPolicyMode,
-    map_path: str,
+    atom_pred_dict: dict[str, str],
     sac_kwargs: dict[str, Any],
     replay_buffer_kwargs: dict[str, Any],
     env_config: dict[str, Any] | None = None,
     warm_start_path: str | None = None,
     kl_div_suffix: str | None = None,
 ) -> tuple[KLDivReportDict, float, float]:
-    env = (
-        TLMultigrid(
-            tl_spec,
-            obs_props,
-            atom_prep_dict,
-            enemy_policy_mode,
-            map_path,
-            **default_env_args,
-        )
-        if default_env_args
-        else TLMultigrid(
-            tl_spec,
-            obs_props,
-            atom_prep_dict,
-            enemy_policy_mode,
-            map_path,
-        )
+
+    env = TLAdversarialParkingEnv(
+        tl_spec, env_config, obs_props=obs_props, atom_pred_dict=atom_pred_dict
     )
 
     seeds_tmp: list[int] = [random.randint(0, 10000) for _ in range(num_replicates)]
@@ -564,10 +543,11 @@ def train_evaluate(
 
         kl_div_report, reward_mean, episode_length = evaluate_models(
             env,
-            target_action_probs_list,
+            target_gaus_means_list,
+            target_gaus_stds_list,
             target_trap_masks,
             spec_models,
-            field_obj_list,
+            obs_list,
             data_save_path.replace(".json", f"_{spec2title(tl_spec)}.json"),
             kl_div_suffix=kl_div_suffix,
         )
@@ -578,6 +558,7 @@ def train_evaluate(
             "kl_div_std": 0,
             "kl_div_max": 999,
             "kl_div_min": 999,
+            "kl_div_median": 999,
             "kl_ci": (999, 999),
         }
         reward_mean: float = 0
@@ -592,7 +573,7 @@ def evaluate_models(
     target_gaus_stds_list: list[NDArray[np.float_]],
     target_trap_masks: list[NDArray],
     spec_models: list[SAC],
-    field_obj_list: list[FieldObj],
+    obs_list: list[dict[str, Any]],
     data_save_path: str,
     num_episodes: int = 200,
     kl_div_suffix: str | None = None,
@@ -664,12 +645,9 @@ def evaluate_models(
             print(
                 f"Getting action distributions for {env._tl_spec} for rep {i + 1}/{len(spec_models)}..."
             )
-            field_list_rep = random.sample(
-                generate_possible_states(env), len(field_obj_list)
-            )
 
             rep_gaus_means, rep_gaus_stds, rep_trap_mask = get_action_distributions(
-                model, env, field_list_rep
+                model, env, obs_list
             )
             rep_gaus_means_list.append(rep_gaus_means)
             rep_gaus_stds_list.append(rep_gaus_stds)
@@ -719,8 +697,13 @@ def evaluate_models(
         weight: NDArray = normalized_entropy / np.sum(normalized_entropy)
 
         kl_divs: NDArray = (
-            np.sum(
-                rel_entr(target_action_probs_filtered, spec_action_probs_filtered),
+            np.mean(
+                gaussian_kl_div(
+                    target_gaus_means_filtered,
+                    target_gaus_stds_filtered,
+                    spec_gaus_means_filtered,
+                    spec_gaus_stds_filtered,
+                ),
                 axis=1,
             )
             * weight
@@ -736,6 +719,7 @@ def evaluate_models(
                 "kl_div_std": 0,
                 "kl_div_max": 999,
                 "kl_div_min": 999,
+                "kl_div_median": 999,
                 "kl_ci": (0, 0),
             }
             if model_kl_divs_concat.size == 0
@@ -850,3 +834,16 @@ def gaussian_dist_entropy(
     std: NDArray[np.float_] | float,
 ) -> NDArray[np.float_] | float:
     return 1 / 2 * (1 + np.log(2 * np.pi * np.square(std)))
+
+
+def gaussian_kl_div(
+    mean1: NDArray[np.float_],
+    std1: NDArray[np.float_],
+    mean2: NDArray[np.float_],
+    std2: NDArray[np.float_],
+) -> NDArray[np.float_]:
+    return (
+        np.log(std2 / std1)
+        + (np.square(std1) + np.square(mean1 - mean2)) / (2 * np.square(std2))
+        - 1 / 2
+    )
