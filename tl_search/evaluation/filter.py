@@ -53,7 +53,7 @@ def apply_filter(
     neighbor_nodes: list[SpecNode],
     neighbor_specs: list[str],
     kl_divs: list[float],
-    mean_rewards: list[list[float]] | None = None,
+    mean_rewards: list[float] | None = None,
     mean_episode_lengths: list[float] | None = None,
     target_episode_length_mean: float | None = None,
     target_episode_length_std: float | None = None,
