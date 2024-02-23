@@ -53,7 +53,6 @@ def search_train_evaluate(
     log_save_path: str,
     num_processes: int,
     num_replicates: int,
-    n_envs: int,
     seeds: list[int],
     total_timesteps: int,
     model_save_path: str,
@@ -61,16 +60,16 @@ def search_train_evaluate(
     animation_save_path: str | None,
     device: torch.device | str,
     window: int,
-    target_action_probs_list: list[NDArray],
+    target_gaus_means_list: list[NDArray[np.float_]],
+    target_gaus_stds_list: list[NDArray[np.float_]],
     target_trap_masks: list[NDArray],
-    field_obj_list: list[FieldObj],
+    obs_list: list[dict[str, Any]],
     data_save_path: str,
     obs_props: list[ObsProp],
-    atom_prep_dict: dict[str, str],
-    enemy_policy_mode: EnemyPolicyMode,
-    map_path: str,
-    tuned_param: dict[str, float],
-    default_env_args: TLMultigridDefaultArgs | None = None,
+    atom_pred_dict: dict[str, str],
+    sac_kwargs: dict[str, Any],
+    replay_buffer_kwargs: dict[str, Any],
+    env_config: dict[str, Any] | None = None,
     search_start_iter: int = 0,
     episode_length_report: EpisodeLengthReport | None = None,
     reward_threshold: float = 0.0,
@@ -116,7 +115,7 @@ def search_train_evaluate(
         )
 
         for n, s in zip(neighbor_nodes, neighbor_specs):
-            node_path: str = f"out/nodes/{enemy_policy_mode}/{spec2title(s)}.pkl"
+            node_path: str = f"out/nodes/{spec2title(s)}.pkl"
 
             if os.path.exists(node_path):
                 pass
@@ -131,7 +130,7 @@ def search_train_evaluate(
 
         search_log: SearchLog = {
             "run": run_label,
-            "enemy_policy": enemy_policy_mode,
+            "enemy_policy": "none",
             "seeds": seeds,
             "num_searched_specs": len(neighbor_specs),
             "min_kl_div_spec": "N/A",
@@ -161,25 +160,23 @@ def search_train_evaluate(
         kl_div_means, reward_means, mean_episode_lengths = train_evaluate_multiprocess(
             num_processes,
             num_replicates,
-            n_envs,
-            seeds,
             total_timesteps,
             model_save_path,
             learning_curve_path,
             animation_save_path,
             device,
             window,
-            target_action_probs_list,
+            target_gaus_means_list,
+            target_gaus_stds_list,
             target_trap_masks,
-            field_obj_list,
+            obs_list,
             data_save_path,
             neighbor_specs,
             obs_props,
-            atom_prep_dict,
-            enemy_policy_mode,
-            map_path,
-            tuned_param,
-            default_env_args,
+            atom_pred_dict,
+            sac_kwargs,
+            replay_buffer_kwargs,
+            env_config,
             warm_start_path,
             kl_div_suffix,
         )
@@ -236,25 +233,23 @@ def search_train_evaluate(
             ) = train_evaluate_multiprocess(
                 num_processes,
                 num_replicates,
-                n_envs,
-                seeds,
                 total_timesteps,
                 model_save_path,
                 learning_curve_path,
                 animation_save_path,
                 device,
                 window,
-                target_action_probs_list,
+                target_gaus_means_list,
+                target_gaus_stds_list,
                 target_trap_masks,
-                field_obj_list,
+                obs_list,
                 data_save_path,
                 additional_neighbor_specs,
                 obs_props,
-                atom_prep_dict,
-                enemy_policy_mode,
-                map_path,
-                tuned_param,
-                default_env_args,
+                atom_pred_dict,
+                sac_kwargs,
+                replay_buffer_kwargs,
+                env_config,
                 warm_start_path,
                 kl_div_suffix,
             )
@@ -352,7 +347,7 @@ def search_train_evaluate(
 
         search_log = {
             "run": run_label,
-            "enemy_policy": enemy_policy_mode,
+            "enemy_policy": "none",
             "seeds": seeds,
             "num_searched_specs": len(neighbor_specs),
             "min_kl_div_spec": min_kl_div_spec,
@@ -760,7 +755,7 @@ def get_action_distributions(
 def obs2kin_dict(obs: dict[str, NDArray[np.float_] | float]) -> dict[str, np.float_]:
     ego_loc: NDArray[np.float_] = obs["achieved_goal"][0:2]
     goal_loc: NDArray[np.float_] = obs["desired_goal"][0:2]
-    adv_loc: NDArray[np.float_] = obs["observation"].reshape(2, -1)[1, 0:2]
+    adv_loc: NDArray[np.float_] = obs["observation"].reshape(2, -1)[-1, 0:2]
 
     d_ego_goal: np.float_ = np.linalg.norm(ego_loc - goal_loc)
     d_ego_dv: np.float_ = np.linalg.norm(ego_loc - adv_loc)
