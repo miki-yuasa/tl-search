@@ -341,16 +341,12 @@ def table2spec(vars: tuple[str, ...], node: SpecNode):
     t_group_star: bool = (
         not node.star
         if len(vars) <= 3
-        else node.star
-        if node.combination == 1
-        else not node.star
+        else node.star if node.combination == 1 else not node.star
     )
     f_group_star: bool = (
         not node.star
         if len(vars) <= 3
-        else node.star
-        if node.combination == 2
-        else not node.star
+        else node.star if node.combination == 2 else not node.star
     )
     t_connector: str = "&" if t_group_star else "|"
     f_connector: str = "&" if f_group_star else "|"
@@ -360,9 +356,7 @@ def table2spec(vars: tuple[str, ...], node: SpecNode):
     spec: str = (
         "(" + t_spec + ")" + group_connector + "(" + f_spec + ")"
         if t_vars and f_vars
-        else t_spec
-        if t_vars
-        else f_spec
+        else t_spec if t_vars else f_spec
     )
 
     return spec
@@ -418,8 +412,8 @@ def node2spec(node: SpecNode) -> str:
     return spec
 
 
-def spec2node(spec: str, enemy_policy_mode: EnemyPolicyMode) -> SpecNode:
-    node_path: str = f"out/nodes/{enemy_policy_mode}/{spec2title(spec)}.pkl"
+def spec2node(spec: str, dir_name: str) -> SpecNode:
+    node_path: str = f"out/nodes/{dir_name}/{spec2title(spec)}.pkl"
 
     with open(node_path, "rb") as f:
         node: SpecNode = pickle.load(f)
@@ -451,9 +445,7 @@ def form_group(
         group_spec = (
             "(" + t_spec + ")" + group_connector + "(" + f_spec + ")"
             if t_vars and f_vars
-            else t_spec
-            if t_vars
-            else f_spec
+            else t_spec if t_vars else f_spec
         )
 
     return group_spec
