@@ -8,8 +8,9 @@ import numpy as np
 from numpy.typing import NDArray
 import torch
 from stable_baselines3 import SAC
-from tl_search.common.io import spec2title
+from stable_baselines3.common.evaluation import evaluate_policy
 
+from tl_search.common.io import spec2title
 from tl_search.common.typing import (
     EntropyReportDict,
     EpisodeLengthReport,
@@ -158,7 +159,7 @@ if __name__ == "__main__":
         (
             ""
             if warm_start_mode == "target"
-            else f"out/models/search/parking/sac_{spec2title(target_spec)}_0.zip"
+            else f"out/models/search/parking/sac_{spec2title(target_spec)}.zip"
         )
         if "exp1" in kl_div_suffix
         else (f"out/models/parking/sac_curr_ent_coef_0.01.zip")
@@ -261,14 +262,16 @@ if __name__ == "__main__":
         with open(target_episode_path, "r") as f:
             episode_length_report: EpisodeLengthReport = json.load(f)
     else:
-        episode_length_report: EpisodeLengthReport = report_episode_lengths(
-            num_episodes,
-            "none",
-            "none",
-            num_replicates,
-            target_model_path,
-            n_envs,
+        model = SAC.load(target_model_path.replace(".zip", f"_{0}.zip"), sample_env)
+        _, episode_lengths = evaluate_policy(
+            model, sample_env, n_eval_episodes=num_episodes, return_episode_rewards=True
         )
+        episode_length_report: EpisodeLengthReport = {
+            "mean": float(np.mean(episode_lengths)),
+            "std": float(np.std(episode_lengths)),
+            "max": float(np.max(episode_lengths)),
+            "min": float(np.min(episode_lengths)),
+        }
         with open(target_episode_path, "w") as f:
             json.dump(episode_length_report, f, indent=4)
 
