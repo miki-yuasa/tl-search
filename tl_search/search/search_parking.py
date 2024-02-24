@@ -1,17 +1,13 @@
 import json, os, pickle
 from multiprocessing import Pool
-import multiprocessing as mp
 import random
 from typing import Any, Literal, overload
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.special import rel_entr, entr
 import torch
-from stable_baselines3 import SAC, HerReplayBuffer
+from stable_baselines3 import SAC
 from stable_baselines3.common.evaluation import evaluate_policy
-
-from gymnasium import spaces
 
 from tl_search.common.io import spec2title
 from tl_search.common.typing import (
@@ -27,9 +23,7 @@ from tl_search.common.typing import (
     ValueTable,
 )
 from tl_search.common.utils import find_min_kl_div_tl_spec
-from tl_search.evaluation.extractor import generate_possible_states
 from tl_search.envs.tl_parking import TLAdversarialParkingEnv, atom_tl_ob2rob
-from tl_search.envs.typing import EnemyPolicyMode, FieldObj
 from tl_search.evaluation.count import get_episode_length_report
 from tl_search.evaluation.eval import collect_kl_div_stats
 from tl_search.evaluation.filter import apply_filter
@@ -538,6 +532,7 @@ def train_evaluate(
 
         kl_div_report, reward_mean, episode_length = evaluate_models(
             env,
+            device,
             target_gaus_means_list,
             target_gaus_stds_list,
             target_trap_masks,
@@ -564,6 +559,7 @@ def train_evaluate(
 
 def evaluate_models(
     env: TLAdversarialParkingEnv,
+    device: torch.device | str,
     target_gaus_means_list: list[NDArray[np.float_]],
     target_gaus_stds_list: list[NDArray[np.float_]],
     target_trap_masks: list[NDArray],
@@ -728,15 +724,18 @@ def evaluate_models(
 
 
 def get_action_distributions(
-    model: SAC, env: TLAdversarialParkingEnv, obs_list: list[dict[str, Any]]
+    model: SAC,
+    env: TLAdversarialParkingEnv,
+    obs_list: list[dict[str, Any]],
 ) -> tuple[NDArray, NDArray, NDArray]:
     aut = env.aut
-
     gaus_means: list[NDArray] = []
     gaus_stds: list[NDArray] = []
     trap_mask: list[int] = []
     for obs in obs_list:
-        mean_actions, log_std, kwargs = model.policy.forward(obs)
+        model.policy.set_training_mode(False)
+        obs_tensor, _ = model.policy.obs_to_tensor(obs)
+        mean_actions, log_std, _ = model.actor.get_action_dist_params(obs_tensor)
         action_std = torch.ones_like(mean_actions) * torch.exp(log_std)
         gaus_mean = mean_actions.cpu().detach().numpy()
         gaus_std = action_std.cpu().detach().numpy()
