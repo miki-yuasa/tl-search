@@ -1,17 +1,17 @@
 from typing import Literal
 import numpy as np
-from stable_baselines3 import PPO, SAC, HerReplayBuffer
+from stable_baselines3 import SAC, HerReplayBuffer
 import torch
 import imageio
 from tl_search.common.io import spec2title
 
 from tl_search.envs.tl_parking import TLAdversarialParkingEnv
 
-use_saved_model: bool = False
+use_saved_model: bool = True
 
 tl_spec: str = "F(psi_ego_goal) & G(!psi_ego_adv & !psi_ego_wall)"
 
-total_timesteps = 500_000
+total_timesteps = 100_000
 net_arch: list[int] = [512 for _ in range(3)]
 
 rl_algo: Literal["sac"] = "sac"

@@ -2,12 +2,13 @@ import itertools, json, os, random
 import pickle
 from math import ceil
 import multiprocessing as mp
-from typing import Callable, Final, Literal
+from typing import Any, Final, Literal
 
 import numpy as np
 from numpy.typing import NDArray
 import torch
-from stable_baselines3 import PPO
+from stable_baselines3 import SAC
+from tl_search.common.io import spec2title
 
 from tl_search.common.typing import (
     EntropyReportDict,
@@ -18,30 +19,29 @@ from tl_search.common.typing import (
     SpecNode,
     ValueTable,
 )
-from tl_search.evaluation.extractor import (
-    generate_possible_states,
+from tl_search.search.search_parking import (
+    search_train_evaluate,
+    select_max_entropy_spec_replicate,
     get_action_distributions,
 )
-from tl_search.envs.heuristic import HeuristicEnemyEnv
-from tl_search.search.search import search_train_evaluate
-from tl_search.search.select import select_max_entropy_spec_replicate
 from tl_search.envs.tl_parking import TLAdversarialParkingEnv
 from tl_search.evaluation.count import report_episode_lengths
 from tl_search.evaluation.ranking import sort_spec
 from tl_search.search.neighbor import create_neighbor_masks, initialize_node, spec2node
+from tl_search.search.sample import sample_obs
 
 if __name__ == "__main__":
     run: int = 1
-    gpu: int = 2  # (run - 1) % 4
+    gpu: int = 0  # (run - 1) % 4
     num_samples: int = 5000
     num_start: int = 1
     num_max_search_steps: int = 10
-    num_processes: int = 25
+    num_processes: int = 15
 
     warm_start_mode: Literal["target", "parent", None] = None
     reward_threshold: float = 0.5 * 0.1
     episode_length_sigma: float | None = 2 if warm_start_mode == "target" else None
-    kl_div_suffix: str | None = "exp3_single_stoch_ws"
+    kl_div_suffix: str | None = "parking_exp1"
 
     target_spec: str | None = "F(psi_ego_goal) & G(!psi_ego_adv & !psi_ego_wall)"
 
@@ -66,16 +66,76 @@ if __name__ == "__main__":
     )
 
     n_envs: Final[int] = 25  # 50  # 20
-    total_timesteps: Final[int] = 500_000
-    num_replicates: Final[int] = 3
+    total_timesteps: Final[int] = 300_000
+    num_replicates: Final[int] = 1
     num_episodes: Final[int] = 200
     window: Final[int] = ceil(round(total_timesteps / 100))
 
-    tuned_param_name: Final[str | None] = "ent_coef"
-    tuned_param_value: Final[float] = 0.1
-    tuned_param: Final[dict[str, float]] = {tuned_param_name: tuned_param_value}
+    net_arch: list[int] = [512 for _ in range(3)]
 
-    ref_num_replicates: int = 3
+    tb_log_dir: str = f"out/logs/parking_search/multistart_{kl_div_suffix}_sac_{run}/"
+
+    sac_kwargs: dict[str, Any] = {
+        "tensorboard_log": tb_log_dir,
+        "buffer_size": int(1e6),
+        "learning_rate": 1e-3,
+        "gamma": 0.95,
+        "batch_size": 1024,
+        "tau": 0.05,
+        "policy_kwargs": dict(net_arch=net_arch),
+        "learning_starts": 1000,
+    }
+
+    her_kwargs = dict(
+        n_sampled_goal=4, goal_selection_strategy="future", copy_info_dict=True
+    )
+
+    config = {
+        "observation": {
+            "type": "KinematicsGoal",
+            "features": ["x", "y", "vx", "vy", "cos_h", "sin_h"],  # "heading"],
+            "scales": [1, 1, 5, 5, 1, 1],
+            "normalize": False,
+        },
+        "action": {"type": "ContinuousAction"},
+        "reward_weights": [1, 0.2, 0, 0, 0.1, 0.1],
+        "success_goal_reward": 0.05,
+        "collision_reward": -5,
+        "steering_range": np.deg2rad(45),
+        "simulation_frequency": 15,
+        "policy_frequency": 5,
+        "duration": 50,
+        "screen_width": 600,
+        "screen_height": 300,
+        "screen_center": "centering_position",
+        "centering_position": [0.5, 0.5],
+        "scaling": 7,
+        "controlled_vehicles": 1,
+        "vehicles_count": 0,
+        "adversarial_vehicle": True,
+        "add_walls": True,
+        "adversarial_vehicle_spawn_config": [
+            {"spawn_point": [-30, 4], "heading": 0, "speed": 5},
+            {"spawn_point": [-30, -4], "heading": 0, "speed": 5},
+            {"spawn_point": [30, -4], "heading": np.pi, "speed": 5},
+            {"spawn_point": [30, -4], "heading": np.pi, "speed": 5},
+        ],
+        "dense_reward": True,
+    }
+
+    obs_props: list[ObsProp] = [
+        ObsProp("d_ego_goal", ["d_ego_goal"], lambda d_ego_goal: d_ego_goal),
+        ObsProp("d_ego_adv", ["d_ego_adv"], lambda d_ego_adv: d_ego_adv),
+        ObsProp("d_ego_wall", ["d_ego_wall"], lambda d_ego_wall: d_ego_wall),
+    ]
+
+    atom_pred_dict: dict[str, str] = {
+        "psi_ego_goal": "d_ego_goal < {}".format(2),
+        "psi_ego_adv": "d_ego_adv < {}".format(4),
+        "psi_ego_wall": "d_ego_wall < {}".format(5),
+    }
+
+    ref_num_replicates: int = 1
 
     exclusions: list[Exclusion] = []
 
@@ -86,49 +146,37 @@ if __name__ == "__main__":
         case "parent":
             suffix = "_parent_ws"
         case None:
-            suffix = "_stoch"
+            suffix = ""
 
     log_suffix: str = (
         f"{kl_div_suffix}_extended_" if kl_div_suffix is not None else "extended_"
     )
 
+    dir_name: str = "parking"
+
     target_model_path: str = (
         (
-            "out/models/search/heuristic/patrol/patrol_enemy_ppo_ws_F(psi_ba_rf_and_!psi_ra_bf)_and_G(!psi_ba_ra_or_psi_ba_bt)_ws.zip"
+            ""
             if warm_start_mode == "target"
-            else "out/models/search/heuristic/patrol/patrol_enemy_ppo_F((psi_ba_rf)_and_(!psi_ra_bf))_and_G(!psi_ba_ra_or_psi_ba_bt).zip"
+            else f"out/models/search/parking/sac_{spec2title(target_spec)}_0.zip"
         )
         if "exp1" in kl_div_suffix
-        else (
-            f"out/models/heuristic/{enemy_policy_mode}_enemy_ppo_curr_ent_coef_0.01.zip"
-        )
+        else (f"out/models/parking/sac_curr_ent_coef_0.01.zip")
     )
     summary_log_path: str = (
-        f"out/data/search/heuristic/multistart_{log_suffix}{enemy_policy_mode}_enemy_ppo_{run}{suffix}.json"
+        f"out/data/search/parking/multistart_{log_suffix}_sac_{run}{suffix}.json"
     )
-    log_save_path: str = (
-        f"out/data/search/heuristic/{enemy_policy_mode}/{log_suffix}{enemy_policy_mode}_enemy_ppo{suffix}.json"
-    )
-    model_save_path: str = (
-        f"out/models/search/heuristic/{enemy_policy_mode}/{enemy_policy_mode}_enemy_ppo{suffix}.zip"
-    )
-    learning_curve_path: str = (
-        f"out/plots/reward_curve/search/heuristic/{enemy_policy_mode}/{enemy_policy_mode}_enemy_ppo{suffix}.png"
-    )
+    log_save_path: str = f"out/data/search/parking/{log_suffix}sac{suffix}.json"
+    model_save_path: str = f"out/models/search/parking/sac{suffix}.zip"
+    learning_curve_path: str = f"out/plots/reward_curve/search/parking/sac{suffix}.png"
     animation_save_path: str | None = None
-    data_save_path: str = (
-        f"out/data/kl_div/heuristic/{enemy_policy_mode}/kl_div/kl_div_{enemy_policy_mode}_enemy_ppo{suffix}.json"
-    )
+    data_save_path: str = f"out/data/kl_div/parking/kl_div/kl_div_sac{suffix}.json"
     target_actions_path: str = (
-        f"out/data/search/dataset/action_probs_{enemy_policy_mode}_enemy_ppo_{log_suffix}full.npz"
+        f"out/data/search/dataset/action_probs_sac_{log_suffix}full.npz"
     )
     target_entropy_path: str = target_actions_path.replace(".npz", "_ent.json")
-    field_list_path: str = (
-        f"out/data/search/dataset/field_list_{enemy_policy_mode}_enemy_ppo_full.pkl"
-    )
-    target_episode_path: str = (
-        f"out/data/search/dataset/episode_{enemy_policy_mode}_enemy_ppo.json"
-    )
+    obs_list_path: str = f"out/data/search/dataset/obs_list_sac_full.pkl"
+    target_episode_path: str = f"out/data/search/dataset/episode_sac.json"
 
     seeds: list[int] = [
         random.randint(0, 10000) for _ in range(num_replicates)
@@ -151,85 +199,63 @@ if __name__ == "__main__":
 
     if start_spec is not None:
         print(f"Using start spec {start_spec}")
-        init_nodes[0] = spec2node(start_spec, enemy_policy_mode)
+        init_nodes[0] = spec2node(start_spec, dir_name)
     else:
         pass
 
-    sample_env = TLMultigrid(
-        "F(psi_ba_rf & !psi_ba_bf) & G(!psi_ra_bf & !(psi_ba_ra & !psi_ba_bt))",
-        obs_props,
-        atom_prep_dict,
-        enemy_policy_mode,
-        map_path,
-    )
+    sample_env = TLAdversarialParkingEnv(target_spec, config, obs_props, atom_pred_dict)
 
-    field_list: list[FieldObj]
+    obs_list: list[dict[str, Any]]
 
-    if os.path.exists(field_list_path):
-        with open(field_list_path, "rb") as f:
-            field_list = pickle.load(f)
+    if os.path.exists(obs_list_path):
+        with open(obs_list_path, "rb") as f:
+            obs_list = pickle.load(f)
     else:
-        field_list = random.sample(generate_possible_states(sample_env), num_samples)
+        model = SAC.load(target_model_path, sample_env)
+        obs_list = sample_obs(sample_env, model, num_samples)
 
-        with open(field_list_path, "wb") as f:
-            pickle.dump(field_list, f)
+        # Save the observations
+        with open(obs_list_path, "wb") as f:
+            pickle.dump(obs_list, f)
 
+    target_gaus_means_list: list[NDArray]
+    target_gaus_stds_list: list[NDArray]
+    target_trap_masks: list[NDArray]
     if os.path.exists(target_actions_path):
         print("Loading target actions...")
         npz = np.load(target_actions_path)
-        target_action_probs_list = npz["arr_0"]
-        target_trap_masks = npz["arr_1"]
+        target_gaus_means_list = npz["gaus_means"]
+        target_gaus_stds_list = npz["gaus_stds"]
+        target_trap_masks = npz["masks"]
     else:
         print("Generating target actions...")
-        target_env = (
-            TLMultigrid(
-                target_spec,
-                obs_props,
-                atom_prep_dict,
-                enemy_policy_mode,
-                map_path,
-            )
-            if target_spec is not None
-            else HeuristicEnemyEnv(enemy_policy_mode, map_path)
+        target_env = TLAdversarialParkingEnv(
+            target_spec, config, obs_props, atom_pred_dict
         )
 
-        target_action_probs_list: list[NDArray] = []
-        target_trap_masks: list[NDArray] = []
+        target_gaus_means_list = []
+        target_gaus_stds_list = []
+        target_trap_masks = []
         print("Loading target model...")
         for i in range(num_replicates):
             print(f"Replicate {i}")
-            model = PPO.load(target_model_path.replace(".zip", f"_{i}.zip"), target_env)
-
-            if target_spec is None:
-                action_probs: list[NDArray] = []
-
-                for field_obj in field_list:
-                    obs, _ = target_env.reset(field_obj.blue_agent, field_obj.red_agent)
-                    obs_tensor, _ = model.policy.obs_to_tensor(obs)
-                    probs_np: NDArray = (
-                        model.policy.get_distribution(obs_tensor)
-                        .distribution.probs[0]
-                        .cpu()
-                        .detach()
-                        .numpy()
-                    )
-
-                    action_probs.append(probs_np)
-
-                target_action_probs_list.append(np.array(action_probs))
-                target_trap_masks.append(np.ones(num_samples))
-
-            else:
-                action_probs: NDArray
-                action_probs, trap_mask = get_action_distributions(
-                    model, target_env, field_list
-                )
-                target_action_probs_list.append(action_probs)
-                target_trap_masks.append(trap_mask)
+            model = SAC.load(target_model_path.replace(".zip", f"_{i}.zip"), target_env)
+            action_probs: NDArray
+            gaus_means, gaus_stds, trap_mask = get_action_distributions(
+                model, target_env, obs_list
+            )
+            target_gaus_means_list.append(gaus_means)
+            target_gaus_stds_list.append(gaus_stds)
+            target_trap_masks.append(trap_mask)
 
             del model
 
-        np.savez(target_actions_path, target_action_probs_list, target_trap_masks)
+        np.savez(
+            target_actions_path,
+            gaus_means=target_gaus_means_list,
+            gaus_stds=target_gaus_stds_list,
+            masks=target_trap_masks,
+        )
 
     if os.path.exists(target_episode_path):
         with open(target_episode_path, "r") as f:
@@ -237,8 +263,8 @@ if __name__ == "__main__":
     else:
         episode_length_report: EpisodeLengthReport = report_episode_lengths(
             num_episodes,
-            enemy_policy_mode,
-            map_path,
+            "none",
+            "none",
             num_replicates,
             target_model_path,
             n_envs,
@@ -256,9 +282,7 @@ if __name__ == "__main__":
             target_max_entropy_idx,
             target_entropies,
             num_non_trap_states,
-        ) = select_max_entropy_spec_replicate(
-            target_action_probs_list, target_trap_masks
-        )
+        ) = select_max_entropy_spec_replicate(target_gaus_stds_list, target_trap_masks)
 
         target_entropy_dict: EntropyReportDict = {
             "max_entropy_idx": target_max_entropy_idx,
@@ -269,7 +293,8 @@ if __name__ == "__main__":
         with open(target_entropy_path, "w") as f:
             json.dump(target_entropy_dict, f, indent=4)
 
-    target_action_probs_list = [target_action_probs_list[target_max_entropy_idx]]
+    target_gaus_means_list = [target_gaus_means_list[target_max_entropy_idx]]
+    target_gaus_stds_list = [target_gaus_stds_list[target_max_entropy_idx]]
     target_trap_masks = [target_trap_masks[target_max_entropy_idx]]
 
     neighbor_masks: tuple[ValueTable, ...] = create_neighbor_masks(
@@ -293,7 +318,6 @@ if __name__ == "__main__":
             log_save_path,
             num_processes,
             num_replicates,
-            n_envs,
             seeds,
             total_timesteps,
             model_save_path,
@@ -301,15 +325,16 @@ if __name__ == "__main__":
             animation_save_path,
             device,
             window,
-            target_action_probs_list,
+            target_gaus_means_list,
+            target_gaus_stds_list,
             target_trap_masks,
-            field_list,
+            obs_list,
             data_save_path,
             obs_props,
-            atom_prep_dict,
-            enemy_policy_mode,
-            map_path,
-            tuned_param,
+            atom_pred_dict,
+            sac_kwargs,
+            her_kwargs,
+            config,
             search_start_iter=start_iter,
             episode_length_report=episode_length_report,
             reward_threshold=reward_threshold,

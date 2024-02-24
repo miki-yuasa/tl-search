@@ -90,7 +90,11 @@ def train_tl_agent(
     )
 
     try:
-        model.learn(total_timesteps)  # , callback=eval_callback)
+        model.learn(
+            total_timesteps,
+            tb_log_name=f"sac_{spec2title(env._tl_spec)}"
+            + ("" if rep_idx is None else f"{rep_idx}"),
+        )
     except:
         model = SAC(
             "MultiInputPolicy",
