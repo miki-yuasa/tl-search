@@ -7,7 +7,6 @@ import numpy as np
 from numpy.typing import NDArray
 import torch
 from stable_baselines3 import SAC
-from stable_baselines3.common.evaluation import evaluate_policy
 
 from tl_search.common.io import spec2title
 from tl_search.common.typing import (
@@ -109,7 +108,7 @@ def search_train_evaluate(
         )
 
         for n, s in zip(neighbor_nodes, neighbor_specs):
-            node_path: str = f"out/nodes/{spec2title(s)}.pkl"
+            node_path: str = f"out/nodes/parking/{spec2title(s)}.pkl"
 
             if os.path.exists(node_path):
                 pass
@@ -566,7 +565,7 @@ def evaluate_models(
     spec_models: list[SAC],
     obs_list: list[dict[str, Any]],
     data_save_path: str,
-    num_episodes: int = 200,
+    num_episodes: int = 20,
     kl_div_suffix: str | None = None,
 ) -> tuple[KLDivReportDict, float, float]:
     print(f"Evaluating models for {env._tl_spec}...")
@@ -600,23 +599,30 @@ def evaluate_models(
         model_rewards: list[float] = []
         episode_lengths: list[int] = []
 
+        print(f"Evaluating rewards and episode lengths for {env._tl_spec}...")
+
         for i, model in enumerate(spec_models):
             rewards: list[float]
-            rewards, lengths = evaluate_policy(
-                model, env, n_eval_episodes=num_episodes, return_episode_rewards=True
-            )
+            rewards, lengths = evaluate_policy(model, env, num_episodes)
 
-            model_rewards.append(float(np.mean(rewards)))
+            model_rewards += rewards
             episode_lengths += lengths
+
+            print(f"Replicate {i + 1}/{len(spec_models)}")
 
         reward_mean = float(np.mean(model_rewards))
         reward_std: float = float(np.std(model_rewards))
         reward_report: RewardReportDict = {"mean": reward_mean, "std": reward_std}
+
+        print(f"Saved reward and episode length for {env._tl_spec}...")
+        print(f"- path: {reward_save_path}")
         with open(reward_save_path, "w") as f:
             json.dump(reward_report, f, indent=4)
 
         episode_length_report = get_episode_length_report(episode_lengths)
 
+        print(f"Saved episode length for {env._tl_spec}...")
+        print(f"- path: {episode_length_save_path}")
         with open(episode_length_save_path, "w") as f:
             json.dump(episode_length_report, f, indent=4)
 
@@ -841,3 +847,31 @@ def gaussian_kl_div(
         + (np.square(std1) + np.square(mean1 - mean2)) / (2 * np.square(std2))
         - 1 / 2
     )
+
+
+def return_input(x: Any) -> Any:
+    return x
+
+
+def evaluate_policy(
+    model: SAC, env: TLAdversarialParkingEnv, num_eval_episodes: int
+) -> tuple[list[float], list[int]]:
+    episode_rewards: list[float] = []
+    episode_lengths: list[int] = []
+
+    for i in range(num_eval_episodes):
+        terminated: bool = False
+        truncated: bool = False
+        obs, _ = env.reset()
+        episode_reward: float = 0
+        episode_length: int = 0
+
+        while not terminated or not truncated:
+            action, _ = model.predict(obs, deterministic=True)
+            obs, reward, terminated, truncated, _ = env.step(action)
+            episode_reward += reward
+            episode_length += 1
+        episode_rewards.append(episode_reward)
+        episode_lengths.append(episode_length)
+
+    return episode_rewards, episode_lengths

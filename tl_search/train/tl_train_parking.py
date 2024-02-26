@@ -64,36 +64,39 @@ def train_tl_agent(
     print(device)
 
     training_env = copy.deepcopy(env)
-
+    print("Training env")
     model = (
         SAC(
             "MultiInputPolicy",
             training_env,
             verbose=1,
-            seed=seed,
+            # seed=seed,
             device=device,
             replay_buffer_class=HerReplayBuffer,
             replay_buffer_kwargs=replay_buffer_kwargs,
             **sac_kwargs,
         )
-        if warm_start_path is None
-        else SAC.load(
-            warm_start_path,
-            training_env,
-            verbose=1,
-            seed=seed,
-            device=device,
-            replay_buffer_class=HerReplayBuffer,
-            replay_buffer_kwargs=replay_buffer_kwargs,
-            **sac_kwargs,
-        )
+        # if warm_start_path is None
+        # else SAC.load(
+        #     warm_start_path,
+        #     training_env,
+        #     verbose=1,
+        #     seed=seed,
+        #     device=device,
+        #     replay_buffer_class=HerReplayBuffer,
+        #     replay_buffer_kwargs=replay_buffer_kwargs,
+        #     **sac_kwargs,
+        # )
+    )
+
+    tb_log_name: str = f"sac_{spec2title(env._tl_spec)}" + (
+        "" if rep_idx is None else f"_{rep_idx}"
     )
 
     try:
         model.learn(
             total_timesteps,
-            tb_log_name=f"sac_{spec2title(env._tl_spec)}"
-            + ("" if rep_idx is None else f"{rep_idx}"),
+            tb_log_name=tb_log_name,
         )
     except:
         model = SAC(
@@ -107,7 +110,7 @@ def train_tl_agent(
             **sac_kwargs,
         )
         try:
-            model.learn(total_timesteps)
+            model.learn(total_timesteps, tb_log_name=tb_log_name)
         except:
             raise Exception("Failed to train model")
 
@@ -227,11 +230,8 @@ def simulate_model(
     while True:
         action = model.predict(obs, deterministic=True)[0]
         obs, reward, terminated, truncated, info = demo_env.step(action)
-        print(reward)
         frames.append(demo_env.render())
         if terminated or truncated:
-            print(demo_env.controlled_vehicles[0].crashed)
-            print(obs)
             break
 
     demo_env.close()

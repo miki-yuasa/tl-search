@@ -24,16 +24,16 @@ from tl_search.search.search_parking import (
     search_train_evaluate,
     select_max_entropy_spec_replicate,
     get_action_distributions,
+    return_input,
 )
 from tl_search.envs.tl_parking import TLAdversarialParkingEnv
-from tl_search.evaluation.count import report_episode_lengths
 from tl_search.evaluation.ranking import sort_spec
 from tl_search.search.neighbor import create_neighbor_masks, initialize_node, spec2node
 from tl_search.search.sample import sample_obs
 
 if __name__ == "__main__":
-    run: int = 1
-    gpu: int = 0  # (run - 1) % 4
+    run: int = 7
+    gpu: int = (run - 1) % 4
     num_samples: int = 5000
     num_start: int = 1
     num_max_search_steps: int = 10
@@ -48,14 +48,14 @@ if __name__ == "__main__":
 
     start_iter: int = 0
     start_specs: list[str | None] = [
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
+        "F(!psi_ego_goal) & G(psi_ego_adv|psi_ego_wall)",
+        "F(!psi_ego_adv&!psi_ego_wall) & G(psi_ego_goal)",
+        "F(psi_ego_wall) & G(!psi_ego_goal|psi_ego_adv)",
+        "F(psi_ego_adv|psi_ego_wall) & G(!psi_ego_goal)",
+        "F(!psi_ego_goal) & G(!psi_ego_adv&!psi_ego_wall)",
+        "F(psi_ego_wall) & G(psi_ego_goal&!psi_ego_adv)",
+        "F(!psi_ego_goal) & G(psi_ego_adv|psi_ego_wall)",
+        "F(!psi_ego_wall) & G(!psi_ego_goal&psi_ego_adv)",
         None,
         None,
     ]
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     )
 
     n_envs: Final[int] = 25  # 50  # 20
-    total_timesteps: Final[int] = 300_000
+    total_timesteps: Final[int] = 100_000
     num_replicates: Final[int] = 1
     num_episodes: Final[int] = 200
     window: Final[int] = ceil(round(total_timesteps / 100))
@@ -125,9 +125,9 @@ if __name__ == "__main__":
     }
 
     obs_props: list[ObsProp] = [
-        ObsProp("d_ego_goal", ["d_ego_goal"], lambda d_ego_goal: d_ego_goal),
-        ObsProp("d_ego_adv", ["d_ego_adv"], lambda d_ego_adv: d_ego_adv),
-        ObsProp("d_ego_wall", ["d_ego_wall"], lambda d_ego_wall: d_ego_wall),
+        ObsProp("d_ego_goal", ["d_ego_goal"], return_input),
+        ObsProp("d_ego_adv", ["d_ego_adv"], return_input),
+        ObsProp("d_ego_wall", ["d_ego_wall"], return_input),
     ]
 
     atom_pred_dict: dict[str, str] = {
@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
     ref_num_replicates: int = 1
 
-    exclusions: list[Exclusion] = []
+    exclusions: list[Exclusion] = ["group"]
 
     suffix: str
     match warm_start_mode:
@@ -171,7 +171,7 @@ if __name__ == "__main__":
     model_save_path: str = f"out/models/search/parking/sac{suffix}.zip"
     learning_curve_path: str = f"out/plots/reward_curve/search/parking/sac{suffix}.png"
     animation_save_path: str | None = None
-    data_save_path: str = f"out/data/kl_div/parking/kl_div/kl_div_sac{suffix}.json"
+    data_save_path: str = f"out/data/kl_div/parking/kl_div_sac{suffix}.json"
     target_actions_path: str = (
         f"out/data/search/dataset/action_probs_sac_{log_suffix}full.npz"
     )
@@ -342,7 +342,7 @@ if __name__ == "__main__":
             episode_length_report=episode_length_report,
             reward_threshold=reward_threshold,
             episode_length_sigma=episode_length_sigma,
-            warm_start_path=None if warm_start_mode == "target" else target_model_path,
+            warm_start_path=None,
             kl_div_suffix=kl_div_suffix,
         )
         local_optimum_nodes.append(node_trace[-1])
