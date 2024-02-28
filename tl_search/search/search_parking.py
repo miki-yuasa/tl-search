@@ -565,7 +565,7 @@ def evaluate_models(
     spec_models: list[SAC],
     obs_list: list[dict[str, Any]],
     data_save_path: str,
-    num_episodes: int = 20,
+    num_episodes: int = 100,
     kl_div_suffix: str | None = None,
 ) -> tuple[KLDivReportDict, float, float]:
     print(f"Evaluating models for {env._tl_spec}...")
@@ -675,6 +675,7 @@ def evaluate_models(
         target_idx = 0
         spec_idx = max_entropy_idx
 
+        print(f"Calculating KL divergence for {env._tl_spec}...")
         trap_mask: NDArray = target_trap_masks[target_idx] * rep_trap_masks[spec_idx]
         target_gaus_means_filtered: NDArray = target_gaus_means_list[target_idx][
             trap_mask == 1
@@ -687,12 +688,14 @@ def evaluate_models(
         ]
         spec_gaus_stds_filtered: NDArray = rep_gaus_stds_list[spec_idx][trap_mask == 1]
 
+        print(f"Calculating entropy for {env._tl_spec}...")
         target_entropy: NDArray = np.mean(
             gaussian_dist_entropy(target_gaus_stds_filtered), axis=1
         )
         normalized_entropy: NDArray = 1 - target_entropy / max_kl_div
         weight: NDArray = normalized_entropy / np.sum(normalized_entropy)
 
+        print(f"Calculating weighted KL divergence for {env._tl_spec}...")
         kl_divs: NDArray = (
             np.mean(
                 gaussian_kl_div(
@@ -723,6 +726,7 @@ def evaluate_models(
             else collect_kl_div_stats(model_kl_divs_concat, in_dict=True)
         )
 
+        print(f"Saved KL divergence for {env._tl_spec}...")
         with open(kl_div_save_path, "w") as f:
             json.dump(kl_div_report, f, indent=4)
 
@@ -738,7 +742,7 @@ def get_action_distributions(
     gaus_means: list[NDArray] = []
     gaus_stds: list[NDArray] = []
     trap_mask: list[int] = []
-    for obs in obs_list:
+    for i, obs in enumerate(obs_list):
         model.policy.set_training_mode(False)
         obs_tensor, _ = model.policy.obs_to_tensor(obs)
         mean_actions, log_std, _ = model.actor.get_action_dist_params(obs_tensor)
@@ -866,11 +870,13 @@ def evaluate_policy(
         episode_reward: float = 0
         episode_length: int = 0
 
-        while not terminated or not truncated:
+        while not terminated and not truncated:
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, terminated, truncated, _ = env.step(action)
             episode_reward += reward
             episode_length += 1
+
+        print(f"Episode {i + 1}/{num_eval_episodes}, Steps {episode_length}")
         episode_rewards.append(episode_reward)
         episode_lengths.append(episode_length)
 

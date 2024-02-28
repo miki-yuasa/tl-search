@@ -32,7 +32,7 @@ from tl_search.search.neighbor import create_neighbor_masks, initialize_node, sp
 from tl_search.search.sample import sample_obs
 
 if __name__ == "__main__":
-    run: int = 7
+    run: int = 8
     gpu: int = (run - 1) % 4
     num_samples: int = 5000
     num_start: int = 1
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     num_processes: int = 15
 
     warm_start_mode: Literal["target", "parent", None] = None
-    reward_threshold: float = 0.5 * 0.1
+    reward_threshold: float = 0.02
     episode_length_sigma: float | None = 2 if warm_start_mode == "target" else None
     kl_div_suffix: str | None = "parking_exp1"
 
@@ -156,13 +156,7 @@ if __name__ == "__main__":
     dir_name: str = "parking"
 
     target_model_path: str = (
-        (
-            ""
-            if warm_start_mode == "target"
-            else f"out/models/search/parking/sac_{spec2title(target_spec)}.zip"
-        )
-        if "exp1" in kl_div_suffix
-        else (f"out/models/parking/sac_curr_ent_coef_0.01.zip")
+        f"out/models/search/parking/sac_F(psi_ego_goal)_and_G(!psi_ego_adv_and_!psi_ego_wall).zip"
     )
     summary_log_path: str = (
         f"out/data/search/parking/multistart_{log_suffix}_sac_{run}{suffix}.json"
