@@ -30,8 +30,9 @@ target_model_path: str = (
 kl_div_suffix: str | None = "parking_exp1"
 
 model_path: str = (
-    f"out/models/search/parking/sac_F(psi_ego_goal)_and_G(!psi_ego_adv_and_!psi_ego_wall)_0.zip"
+    "out/models/parking/parking_demo_fixed_sac_512_512_512_timesteps_0.1M_tl_F(psi_ego_goal)_and_G(!psi_ego_adv_and_!psi_ego_wall)_scaled_1.zip"  # "out/models/search/parking/sac_F(psi_ego_goal)_and_G(!psi_ego_adv_and_!psi_ego_wall)_0.zip"
 )
+
 
 log_suffix: str = (
     f"{kl_div_suffix}_extended_" if kl_div_suffix is not None else "extended_"
@@ -175,75 +176,75 @@ rep_trap_masks: list[NDArray[np.float_]] = []
 
 spec_models = [SAC.load(model_path, env)]
 
-model_rewards: list[float] = []
-episode_lengths: list[int] = []
-
-for i, model in enumerate(spec_models):
-    rewards: list[float]
-    rewards, lengths = evaluate_policy(model, env, num_episodes)
-
-    model_rewards += rewards
-    episode_lengths += lengths
-
-print(f"Model rewards: {np.mean(model_rewards)}")
-print(f"Episode lengths: {np.mean(episode_lengths)}")
+# model_rewards: list[float] = []
+# episode_lengths: list[int] = []
 
 # for i, model in enumerate(spec_models):
-#     print(
-#         f"Getting action distributions for {env._tl_spec} for rep {i + 1}/{len(spec_models)}..."
-#     )
+#     rewards: list[float]
+#     rewards, lengths = evaluate_policy(model, env, num_episodes)
 
-#     rep_gaus_means, rep_gaus_stds, rep_trap_mask = get_action_distributions(
-#         model, env, obs_list
-#     )
-#     rep_gaus_means_list.append(rep_gaus_means)
-#     rep_gaus_stds_list.append(rep_gaus_stds)
-#     rep_trap_masks.append(rep_trap_mask)
+#     model_rewards += rewards
+#     episode_lengths += lengths
 
-# (
-#     max_entropy_idx,
-#     entropies,
-#     num_non_trap_states,
-# ) = select_max_entropy_spec_replicate(rep_gaus_stds_list, rep_trap_masks)
+# print(f"Model rewards: {np.mean(model_rewards)}")
+# print(f"Episode lengths: {np.mean(episode_lengths)}")
 
-# print(f"Getting KL divergences for {env._tl_spec}...")
+for i, model in enumerate(spec_models):
+    print(
+        f"Getting action distributions for {env._tl_spec} for rep {i + 1}/{len(spec_models)}..."
+    )
 
-# max_kl_div: float = gaussian_dist_entropy(10)
+    rep_gaus_means, rep_gaus_stds, rep_trap_mask = get_action_distributions(
+        model, env, obs_list
+    )
+    rep_gaus_means_list.append(rep_gaus_means)
+    rep_gaus_stds_list.append(rep_gaus_stds)
+    rep_trap_masks.append(rep_trap_mask)
 
-# # for comb in idx_combs:
-# target_idx = 0
-# spec_idx = 0
+(
+    max_entropy_idx,
+    entropies,
+    num_non_trap_states,
+) = select_max_entropy_spec_replicate(rep_gaus_stds_list, rep_trap_masks)
 
-# print(f"Calculating KL divergence for {env._tl_spec}...")
-# trap_mask: NDArray = target_trap_masks[target_idx] * rep_trap_masks[spec_idx]
-# target_gaus_means_filtered: NDArray = target_gaus_means_list[target_idx][trap_mask == 1]
-# target_gaus_stds_filtered: NDArray = target_gaus_stds_list[target_idx][trap_mask == 1]
-# spec_gaus_means_filtered: NDArray = rep_gaus_means_list[spec_idx][trap_mask == 1]
-# spec_gaus_stds_filtered: NDArray = rep_gaus_stds_list[spec_idx][trap_mask == 1]
+print(f"Getting KL divergences for {env._tl_spec}...")
 
-# print(f"Calculating entropy for {env._tl_spec}...")
-# target_entropy: NDArray = np.mean(
-#     gaussian_dist_entropy(target_gaus_stds_filtered), axis=1
-# )
-# normalized_entropy: NDArray = 1 - target_entropy / max_kl_div
-# weight: NDArray = normalized_entropy / np.sum(normalized_entropy)
+max_kl_div: float = gaussian_dist_entropy(10)
 
-# print(f"Calculating weighted KL divergence for {env._tl_spec}...")
-# kl_divs: NDArray = (
-#     np.mean(
-#         gaussian_kl_div(
-#             target_gaus_means_filtered,
-#             target_gaus_stds_filtered,
-#             spec_gaus_means_filtered,
-#             spec_gaus_stds_filtered,
-#         ),
-#         axis=1,
-#     )
-#     * weight
-# )
+# for comb in idx_combs:
+target_idx = 0
+spec_idx = 0
 
-# model_kl_divs.append(kl_divs.flatten())
+print(f"Calculating KL divergence for {env._tl_spec}...")
+trap_mask: NDArray = target_trap_masks[target_idx] * rep_trap_masks[spec_idx]
+target_gaus_means_filtered: NDArray = target_gaus_means_list[target_idx][trap_mask == 1]
+target_gaus_stds_filtered: NDArray = target_gaus_stds_list[target_idx][trap_mask == 1]
+spec_gaus_means_filtered: NDArray = rep_gaus_means_list[spec_idx][trap_mask == 1]
+spec_gaus_stds_filtered: NDArray = rep_gaus_stds_list[spec_idx][trap_mask == 1]
 
-# model_kl_divs_concat: NDArray = np.concatenate(model_kl_divs)
+print(f"Calculating entropy for {env._tl_spec}...")
+target_entropy: NDArray = np.mean(
+    gaussian_dist_entropy(target_gaus_stds_filtered), axis=1
+)
+normalized_entropy: NDArray = 1 - target_entropy / max_kl_div
+weight: NDArray = normalized_entropy / np.sum(normalized_entropy)
 
-# print(collect_kl_div_stats(model_kl_divs_concat, in_dict=True))
+print(f"Calculating weighted KL divergence for {env._tl_spec}...")
+kl_divs: NDArray = (
+    np.mean(
+        gaussian_kl_div(
+            target_gaus_means_filtered,
+            target_gaus_stds_filtered,
+            spec_gaus_means_filtered,
+            spec_gaus_stds_filtered,
+        ),
+        axis=1,
+    )
+    * weight
+)
+
+model_kl_divs.append(kl_divs.flatten())
+
+model_kl_divs_concat: NDArray = np.concatenate(model_kl_divs)
+
+print(collect_kl_div_stats(model_kl_divs_concat, in_dict=True))

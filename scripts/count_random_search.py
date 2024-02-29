@@ -1,6 +1,6 @@
 import numpy as np
 
-node_size: int = 3 * 3 + 2
+node_size: int = 3 * 4 + 2
 num_episodes: int = 10000
 
 num_possible_nodes: int = 2**node_size

@@ -7,7 +7,7 @@ from tl_search.common.io import spec2title
 
 from tl_search.envs.tl_parking import TLAdversarialParkingEnv
 
-use_saved_model: bool = True
+use_saved_model: bool = False
 
 tl_spec: str = "F(psi_ego_goal) & G(!psi_ego_adv & !psi_ego_wall)"
 
@@ -20,11 +20,11 @@ tb_log_path: str = "out/logs/tl_parking"
 
 net_arch_str = "_".join(map(str, net_arch))
 suffix: str = (
-    f"{rl_algo}_{net_arch_str}_timesteps_{total_timesteps/1_000_000}M_tl_{spec2title(tl_spec)}_scaled"
+    f"{rl_algo}_{net_arch_str}_timesteps_{total_timesteps/1_000_000}M_tl_{spec2title(tl_spec)}_scaled_1"
 )
 model_save_path: str = f"out/models/parking/parking_demo_fixed_{suffix}.zip"
 animation_save_path: str = f"out/plots/animation/parking_demo_fixed_{suffix}.gif"
-gpu_id: int = 0
+gpu_id: int = 1
 
 her_kwargs = dict(
     n_sampled_goal=4, goal_selection_strategy="future", copy_info_dict=True

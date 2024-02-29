@@ -1,43 +1,39 @@
 import os
 import json
-from matplotlib.axes import Axes
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib import ticker
 import seaborn as sns
 
 from tl_search.common.typing import KLDivReport
 
-file_prefix: str = (
-    "out/data/search/heuristic/patrol/exp1_single_extended_patrol_enemy_ppo"
-)
-# file_name: str = "out/data/search/heuristic/patrol/exp1_single_extended_patrol_enemy_ppo.1.0.0_sorted.json"
+file_prefix: str = "out/data/search/parking/parking_exp1_extended_sac"
 file_suffix: str = "sorted.json"
 
-kl_div_savename: str = "out/data/search/exp1_single_kl_divs.json"
+kl_div_savename: str = "out/data/search/oarking_exp1_single_kl_divs.json"
 
 
-fig_name: str = "out/plots/rank/rank_exp1.png"
+fig_name: str = "out/plots/rank/rank_parking_exp1.png"
 
 multi_start_kl_divs: list[float] = [
-    8.00e-08,
-    5.95e-06,
-    8.52e-05,
-    1.57e-06,
-    8.00e-08,
-    7.42e-07,
-    1.18e-05,
-    1.46e-06,
-    1.18e-05,
-    1.62e-05,
+    0.00e-08,
+    7.35e-04,
+    7.35e-04,
+    6.40e-04,
+    0.00e-08,
+    4.61e-04,
+    0.00,
+    4.62e-04,
 ]
 
-nums_searched_specs: list[int] = [52, 58, 42, 42, 65, 54, 55, 42, 73, 46]
-num_total_specs: int = 640
+nums_searched_specs: list[int] = [36, 27, 26, 29, 28, 43, 36, 32]
+num_total_specs: int = 96
 
 max_search_steps: int = 10
 
-rw_kl_div: float = 1.252e-05
+rw_kl_div: float | None = None
 
 num_start: int = len(multi_start_kl_divs)
 
@@ -90,22 +86,31 @@ plt.rcParams["figure.subplot.bottom"] = 0.13
 
 ax: Axes
 fig, ax = plt.subplots(figsize=(7, 3))
+# Change the size of the figure
 
+print(np.array(nums_searched_specs) / num_total_specs * 100)
 ax.scatter(
-    np.array(multi_start_kl_divs), np.array(nums_searched_specs) / 640 * 100, zorder=2
+    np.array(multi_start_kl_divs),
+    np.array(nums_searched_specs) / num_total_specs * 100,
+    zorder=2,
 )
 ax.vlines(threshold_values, x_min, x_max, "#d62728", linestyles="dashed", zorder=1)
-ax.vlines(rw_kl_div, x_min, x_max, "#2ca02c", linestyles="dashed", zorder=1)
-ax.text(1e-7, 2, "1 %", font_dict)
-ax.text(0.08e-5, 2, "5 %", font_dict)
-ax.text(2.3e-5, 2, "10 %", font_dict)
-ax.text(0.6e-5, 21, "RW", color="#2ca02c")
-ax.hlines(65.7, 0, 1, linestyles="dashed", zorder=1, colors="#2ca02c")
-ax.text(0.1e-6, 55, "Random Search", color="#2ca02c")
+if rw_kl_div is not None:
+    ax.vlines(rw_kl_div, x_min, x_max, "#2ca02c", linestyles="dashed", zorder=1)
+    ax.text(0.55e-5, 18, "RW", color="#2ca02c")
+else:
+    pass
+ax.text(0.1e-4, 22, "1 %", font_dict)
+ax.text(4.4e-4, 22, "5 %", font_dict)
+ax.text(5.6e-4, 22, "10 %", font_dict)
+ax.hlines(66.5, -0.5e-4, 1, linestyles="dashed", zorder=1, colors="#2ca02c")
+ax.text(0.2e-4, 61, "Random Search", color="#2ca02c")
 ax.set_ylabel("Evaluated specifications [%]")
 ax.set_xlabel("Weighted KL divergence [-]")
-ax.set_xlim(5e-8, 1e-4)
-ax.set_ylim(0, 70)
-ax.set_xscale("log")
+ax.ticklabel_format(axis="x", style="sci", scilimits=(1, 4), useMathText=True)
+
+ax.set_xlim(-0.00005, 0.0008)
+ax.set_ylim(20, 70)
+# ax.set_xscale("log")
 ax.grid(True)
 plt.savefig(fig_name, dpi=600, bbox_inches="tight")

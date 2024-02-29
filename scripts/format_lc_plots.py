@@ -9,7 +9,9 @@ import seaborn as sns
 from tl_search.common.utils import moving_average
 
 plot_font_name: str = "Times New Roman"
-lc_data_filename: str = "out/plots/reward_curve/search/heuristic/patrol/patrol_enemy_ppo_F((psi_ba_rf)_and_(!psi_ra_bf))_and_G(!psi_ba_ra_or_psi_ba_bt)_target_ent_coef_0.1_1_reward.pickle"  # "out/plots/reward_curve/search/heuristic/fight/fight_enemy_ppo_F(psi_ba_rf_and_!psi_ba_bf)_and_G(!psi_ra_bf_and_(!psi_ba_ra_or_psi_ba_bt))_ws_ent_coef_0.0.pkl"
+lc_data_filename: str = (
+    "out/plots/reward_curve/search/heuristic/patrol/patrol_enemy_ppo_F((psi_ba_rf)_and_(!psi_ra_bf))_and_G(!psi_ba_ra_or_psi_ba_bt)_target_ent_coef_0.1_1_reward.pickle"  # "out/plots/reward_curve/search/heuristic/fight/fight_enemy_ppo_F(psi_ba_rf_and_!psi_ba_bf)_and_G(!psi_ra_bf_and_(!psi_ba_ra_or_psi_ba_bt))_ws_ent_coef_0.0.pkl"
+)
 savename: str = (
     "out/plots/reward_curve/exp1.png"  # lc_data_filename.replace(".pkl", ".png")
 )
@@ -18,10 +20,10 @@ is_bad_one_plotted: bool = True
 
 sns.set(style="whitegrid", font_scale=1.3)
 plt.rcParams["font.family"] = plot_font_name
-plt.rcParams["figure.subplot.bottom"] = 0.14
-plt.rcParams["figure.subplot.left"] = 0.15
+# plt.rcParams["figure.subplot.bottom"] = 0.14
+# plt.rcParams["figure.subplot.left"] = 0.15
 
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(7, 3))
 
 with open(lc_data_filename, "rb") as f:
     # X: list[NDArray] = pickle.load(f)
@@ -64,7 +66,9 @@ line1 = ax.plot(
 )
 
 if is_bad_one_plotted:
-    bad_savename: str = "out/plots/reward_curve/search/heuristic/patrol/patrol_enemy_ppo_F(!psi_ba_bt_and_!psi_ra_bf)_and_G(psi_ba_ra_and_psi_ba_rf)_2_reward.pickle"  # "out/plots/reward_curve/search/policy_random_ppo_7_291_rewards.pickle"
+    bad_savename: str = (
+        "out/plots/reward_curve/search/heuristic/patrol/patrol_enemy_ppo_F(!psi_ba_bt_and_!psi_ra_bf)_and_G(psi_ba_ra_and_psi_ba_rf)_2_reward.pickle"  # "out/plots/reward_curve/search/policy_random_ppo_7_291_rewards.pickle"
+    )
     with open(bad_savename, "rb") as f:
         # X_bad: list[NDArray] = pickle.load(f)
         # Y_bad: list[NDArray] = pickle.load(f)
@@ -97,6 +101,9 @@ if is_bad_one_plotted:
     ax2.tick_params(axis="y", labelcolor="r")
     ax2.grid(False)
 
+    # ax.set_yticks(np.linspace(ax.get_ybound()[0], ax.get_ybound()[1], 4))
+    # ax2.set_yticks(np.linspace(ax2.get_ybound()[0], ax2.get_ybound()[1], 4))
+
     lines = line1 + line2
     labels = [l.get_label() for l in lines]
 
@@ -115,12 +122,14 @@ else:
 #         )
 
 ax.yaxis.set_major_formatter(ptick.ScalarFormatter(useMathText=True))
-ax.ticklabel_format(style="sci", axis="x", scilimits=(5, 5))  # 10^3単位の指数で表示する。
+ax.ticklabel_format(
+    style="sci", axis="x", scilimits=(5, 5)
+)  # 10^3単位の指数で表示する。
 # ax.set_xticks([0, 100000, 200000, 300000, 400000])
 # ax.set_xlim([0, 500000])
 plt.gca().yaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
-ax.set_xlabel("Number of Timesteps")
-ax.set_ylabel("Rewards")
-plt.savefig(savename, dpi=600)
+ax.set_xlabel("Number of Timesteps [-]")
+ax.set_ylabel("Rewards [-]")
+plt.savefig(savename, dpi=600, bbox_inches="tight")
 plt.clf()
 plt.close()
