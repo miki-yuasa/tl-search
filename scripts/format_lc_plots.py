@@ -23,7 +23,7 @@ plt.rcParams["font.family"] = plot_font_name
 # plt.rcParams["figure.subplot.bottom"] = 0.14
 # plt.rcParams["figure.subplot.left"] = 0.15
 
-fig, ax = plt.subplots(figsize=(7, 3))
+fig, ax = plt.subplots(figsize=(8, 3))
 
 with open(lc_data_filename, "rb") as f:
     # X: list[NDArray] = pickle.load(f)
@@ -129,7 +129,7 @@ ax.ticklabel_format(
 # ax.set_xlim([0, 500000])
 plt.gca().yaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
 ax.set_xlabel("Number of Timesteps [-]")
-ax.set_ylabel("Rewards [-]")
+ax.set_ylabel("Returns [-]")
 plt.savefig(savename, dpi=600, bbox_inches="tight")
 plt.clf()
 plt.close()
