@@ -22,9 +22,9 @@ if __name__ == "__main__":
 
     map_path: Final[str] = "tl_search/map/maps/board_0002_obj.txt"
 
-    filename_common: Final[
-        str
-    ] = f"search/heuristic/{enemy_policy_mode}/fight_enemy_ppo_ws_{spec2title(tl_spec)}_ws"
+    filename_common: Final[str] = (
+        f"search/heuristic/{enemy_policy_mode}/fight_enemy_ppo_ws_{spec2title(tl_spec)}_ws"
+    )
 
     model_save_path: Final[str] = f"out/models/{filename_common}.zip"
     animation_save_path: Final[str] = f"out/plots/animation/{filename_common}.gif"
