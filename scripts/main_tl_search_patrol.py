@@ -53,6 +53,8 @@ if __name__ == "__main__":
 
     reward_threshold: float = 0.0
     episode_length_sigma: float = 1
+    max_extended_steps: int = 0
+    expand_search: bool = True
 
     enemy_policy_mode: EnemyPolicyMode = "patrol"
     n_envs: Final[int] = 50  # 20
@@ -60,7 +62,7 @@ if __name__ == "__main__":
     num_replicates: Final[int] = 3
     num_episodes: Final[int] = 200
     window: Final[int] = ceil(round(total_timesteps / 100))
-    map_path: Final[str] = "tl_search/map/maps/board_0002_obj.txt"
+    map_path: Final[str] = "assets/maps/board_0002_obj.txt"
     warm_start: bool = True
 
     tuned_param_name: Final[str | None] = "ent_coef"
@@ -72,17 +74,29 @@ if __name__ == "__main__":
     exclusions: list[Exclusion] = []
 
     suffix: str = ""
-    log_suffix: str = "filtered_"
+    log_suffix: str = (
+        f"filtered_{reward_threshold}_extended_{max_extended_steps}_expanded_{expand_search}_"
+    )
 
     target_model_path: str = (
         f"out/models/heuristic/{enemy_policy_mode}_enemy_ppo_curr_ent_coef_0.01.zip"
     )
-    summary_log_path: str = f"out/data/search/heuristic/multistart_{log_suffix}{enemy_policy_mode}_enemy_ppo_{run}{suffix}.json"
-    log_save_path: str = f"out/data/search/heuristic/{enemy_policy_mode}/{log_suffix}{enemy_policy_mode}_enemy_ppo{suffix}.json"
-    model_save_path: str = f"out/models/search/heuristic/{enemy_policy_mode}/{enemy_policy_mode}_enemy_ppo{suffix}.zip"
-    learning_curve_path: str = f"out/plots/reward_curve/search/heuristic/{enemy_policy_mode}/{enemy_policy_mode}_enemy_ppo{suffix}.png"
+    summary_log_path: str = (
+        f"out/data/search/heuristic/multistart_{log_suffix}{enemy_policy_mode}_enemy_ppo_{run}{suffix}.json"
+    )
+    log_save_path: str = (
+        f"out/data/search/heuristic/{enemy_policy_mode}/{log_suffix}{enemy_policy_mode}_enemy_ppo{suffix}.json"
+    )
+    model_save_path: str = (
+        f"out/models/search/heuristic/{enemy_policy_mode}/{enemy_policy_mode}_enemy_ppo{suffix}.zip"
+    )
+    learning_curve_path: str = (
+        f"out/plots/reward_curve/search/heuristic/{enemy_policy_mode}/{enemy_policy_mode}_enemy_ppo{suffix}.png"
+    )
     animation_save_path: str | None = None
-    data_save_path: str = f"out/data/kl_div/heuristic/{enemy_policy_mode}/kl_div_{enemy_policy_mode}_enemy_ppo{suffix}.json"
+    data_save_path: str = (
+        f"out/data/kl_div/heuristic/{enemy_policy_mode}/kl_div_{enemy_policy_mode}_enemy_ppo{suffix}.json"
+    )
     target_actions_path: str = (
         f"out/data/search/dataset/action_probs_{enemy_policy_mode}_enemy_ppo"
     )
@@ -229,37 +243,39 @@ if __name__ == "__main__":
 
     for i, init_node in enumerate(init_nodes):
         node_trace, spec_trace, metrics_trace, searched_specs = search_train_evaluate(
-            init_node,
-            num_max_search_steps,
-            run,
-            i,
-            neighbor_masks,
-            log_save_path,
-            num_processes,
-            num_replicates,
-            n_envs,
-            seeds,
-            total_timesteps,
-            model_save_path,
-            learning_curve_path,
-            animation_save_path,
-            device,
-            window,
-            idx_combs,
-            target_action_probs_list,
-            target_trap_masks,
-            field_list,
-            data_save_path,
-            obs_props,
-            atom_prep_dict,
-            enemy_policy_mode,
-            map_path,
-            tuned_param,
+            init_node=init_node,
+            num_max_search_steps=num_max_search_steps,
+            run=run,
+            start_idx=i,
+            neighbor_masks=neighbor_masks,
+            log_save_path=log_save_path,
+            num_processes=num_processes,
+            num_replicates=num_replicates,
+            n_envs=n_envs,
+            seeds=seeds,
+            total_timesteps=total_timesteps,
+            model_save_path=model_save_path,
+            learning_curve_path=learning_curve_path,
+            animation_save_path=animation_save_path,
+            device=device,
+            window=window,
+            # idx_combs,
+            target_action_probs_list=target_action_probs_list,
+            target_trap_masks=target_trap_masks,
+            field_obj_list=field_list,
+            data_save_path=data_save_path,
+            obs_props=obs_props,
+            atom_prep_dict=atom_prep_dict,
+            enemy_policy_mode=enemy_policy_mode,
+            map_path=map_path,
+            tuned_param=tuned_param,
             search_start_iter=start_iter,
             episode_length_report=episode_length_report,
             reward_threshold=reward_threshold,
             episode_length_sigma=episode_length_sigma,
             warm_start_path=None if not warm_start else target_model_path,
+            max_extended_steps=max_extended_steps,
+            expand_search=expand_search,
         )
         local_optimum_nodes.append(node_trace[-1])
         local_optimum_specs.append(spec_trace[-1])
