@@ -70,6 +70,8 @@ def search_train_evaluate(
     warm_start_mode: Literal["target", "parent", None] = None,
     warm_start_path: str | None = None,
     kl_div_suffix: str | None = None,
+    max_extended_steps: int = 3,
+    expand_search: bool = True,
 ) -> tuple[list[SpecNode], list[str], list[float], list[str]]:
     print("Searching for a spec. Start index: ", start_idx)
     print("Initial spec: ", node2spec(init_node))
@@ -83,8 +85,6 @@ def search_train_evaluate(
     log_save_path_orig: str = log_save_path
 
     hit_local_minimum: bool = False
-    extended_step_count: int = 0
-    max_extended_steps: int = 3
     hit_step: int = 0
 
     term_cond: bool = False
@@ -212,72 +212,77 @@ def search_train_evaluate(
         ) = find_min_kl_div_tl_spec(filtered_specs, filtered_kl_divs)
 
         if min_kl_div_spec == node2spec(node):
-            print("The min KL-divergence spec is the same as the current spec.")
-            print("Expand the search.")
-            additional_neighbors: list[SpecNode] = find_additional_neighbors(
-                neighbor_nodes
-            )
-            additional_neighbor_specs: list[str] = nodes2specs(additional_neighbors)
+            if expand_search:
+                print("The min KL-divergence spec is the same as the current spec.")
+                print("Expand the search.")
+                additional_neighbors: list[SpecNode] = find_additional_neighbors(
+                    neighbor_nodes
+                )
+                additional_neighbor_specs: list[str] = nodes2specs(additional_neighbors)
 
-            (
-                additional_kl_div_means,
-                additional_reward_means,
-                additional_mean_episode_lengths,
-            ) = train_evaluate_multiprocess(
-                num_processes,
-                num_replicates,
-                total_timesteps,
-                model_save_path,
-                learning_curve_path,
-                animation_save_path,
-                device,
-                window,
-                target_gaus_means_list,
-                target_gaus_stds_list,
-                target_trap_masks,
-                obs_list,
-                data_save_path,
-                additional_neighbor_specs,
-                obs_props,
-                atom_pred_dict,
-                sac_kwargs,
-                replay_buffer_kwargs,
-                env_config,
-                warm_start_path,
-                kl_div_suffix,
-            )
+                (
+                    additional_kl_div_means,
+                    additional_reward_means,
+                    additional_mean_episode_lengths,
+                ) = train_evaluate_multiprocess(
+                    num_processes,
+                    num_replicates,
+                    total_timesteps,
+                    model_save_path,
+                    learning_curve_path,
+                    animation_save_path,
+                    device,
+                    window,
+                    target_gaus_means_list,
+                    target_gaus_stds_list,
+                    target_trap_masks,
+                    obs_list,
+                    data_save_path,
+                    additional_neighbor_specs,
+                    obs_props,
+                    atom_pred_dict,
+                    sac_kwargs,
+                    replay_buffer_kwargs,
+                    env_config,
+                    warm_start_path,
+                    kl_div_suffix,
+                )
 
-            neighbor_nodes += additional_neighbors
-            neighbor_specs += additional_neighbor_specs
-            kl_div_means += additional_kl_div_means
-            reward_means += additional_reward_means
-            mean_episode_lengths += additional_mean_episode_lengths
+                neighbor_nodes += additional_neighbors
+                neighbor_specs += additional_neighbor_specs
+                kl_div_means += additional_kl_div_means
+                reward_means += additional_reward_means
+                mean_episode_lengths += additional_mean_episode_lengths
 
-            (
-                filtered_nodes,
-                filtered_specs,
-                filtered_kl_divs,
-                filtered_rewards,
-                filtered_episode_lengths,
-            ) = apply_filter(
-                neighbor_nodes,
-                neighbor_specs,
-                kl_div_means,
-                reward_means,
-                mean_episode_lengths,
-                episode_length_report["mean"],
-                episode_length_report["std"],
-                reward_threshold,
-                episode_length_sigma,
-            )
+                (
+                    filtered_nodes,
+                    filtered_specs,
+                    filtered_kl_divs,
+                    filtered_rewards,
+                    filtered_episode_lengths,
+                ) = apply_filter(
+                    neighbor_nodes,
+                    neighbor_specs,
+                    kl_div_means,
+                    reward_means,
+                    mean_episode_lengths,
+                    episode_length_report["mean"],
+                    episode_length_report["std"],
+                    reward_threshold,
+                    episode_length_sigma,
+                )
 
-            (
-                min_kl_div_spec,
-                min_kl_div_idx,
-                min_kl_div_mean,
-                mean_kl_div_mean,
-                max_kl_div_mean,
-            ) = find_min_kl_div_tl_spec(filtered_specs, filtered_kl_divs)
+                (
+                    min_kl_div_spec,
+                    min_kl_div_idx,
+                    min_kl_div_mean,
+                    mean_kl_div_mean,
+                    max_kl_div_mean,
+                ) = find_min_kl_div_tl_spec(filtered_specs, filtered_kl_divs)
+
+            else:
+                print("The min KL-divergence spec is the same as the current spec.")
+                print("Not expanding the search.")
 
             if min_kl_div_spec == node2spec(node) and not hit_local_minimum:
                 local_minimum_spec = min_kl_div_spec
@@ -435,6 +440,7 @@ def train_evaluate_multiprocess(
     env_config: dict[str, Any] | None = None,
     warm_start_path: str | None = None,
     kl_div_suffix: str | None = None,
+    kl_div_weighted: bool = True,
 ) -> tuple[list[float], list[float], list[float]]:
     inputs = [
         (
@@ -458,6 +464,7 @@ def train_evaluate_multiprocess(
             env_config,
             warm_start_path,
             kl_div_suffix,
+            kl_div_weighted,
         )
         for tl_spec in tl_specs
     ]
@@ -501,6 +508,7 @@ def train_evaluate(
     env_config: dict[str, Any] | None = None,
     warm_start_path: str | None = None,
     kl_div_suffix: str | None = None,
+    kl_div_weighted: bool = True,
 ) -> tuple[KLDivReportDict, float, float]:
 
     env = TLAdversarialParkingEnv(
@@ -539,6 +547,7 @@ def train_evaluate(
             obs_list,
             data_save_path.replace(".json", f"_{spec2title(tl_spec)}.json"),
             kl_div_suffix=kl_div_suffix,
+            kl_div_weighted=kl_div_weighted,
         )
 
     except:
@@ -567,6 +576,7 @@ def evaluate_models(
     data_save_path: str,
     num_episodes: int = 100,
     kl_div_suffix: str | None = None,
+    kl_div_weighted: bool = True,
 ) -> tuple[KLDivReportDict, float, float]:
     print(f"Evaluating models for {env._tl_spec}...")
 
@@ -689,25 +699,28 @@ def evaluate_models(
         spec_gaus_stds_filtered: NDArray = rep_gaus_stds_list[spec_idx][trap_mask == 1]
 
         print(f"Calculating entropy for {env._tl_spec}...")
-        target_entropy: NDArray = np.mean(
-            gaussian_dist_entropy(target_gaus_stds_filtered), axis=1
+        raw_kl_div: NDArray[np.float64] = np.mean(
+            gaussian_kl_div(
+                target_gaus_means_filtered,
+                target_gaus_stds_filtered,
+                spec_gaus_means_filtered,
+                spec_gaus_stds_filtered,
+            ),
+            axis=1,
         )
-        normalized_entropy: NDArray = 1 - target_entropy / max_kl_div
-        weight: NDArray = normalized_entropy / np.sum(normalized_entropy)
+        if kl_div_weighted:
+            print("Calculating weighted KL divergence...")
+            target_entropy: NDArray = np.mean(
+                gaussian_dist_entropy(target_gaus_stds_filtered), axis=1
+            )
+            normalized_entropy: NDArray = 1 - target_entropy / max_kl_div
+            weight: NDArray = normalized_entropy / np.sum(normalized_entropy)
+        else:
+            print("Calculating unweighted KL divergence...")
+            weight: NDArray = np.ones_like(raw_kl_div)
 
         print(f"Calculating weighted KL divergence for {env._tl_spec}...")
-        kl_divs: NDArray = (
-            np.mean(
-                gaussian_kl_div(
-                    target_gaus_means_filtered,
-                    target_gaus_stds_filtered,
-                    spec_gaus_means_filtered,
-                    spec_gaus_stds_filtered,
-                ),
-                axis=1,
-            )
-            * weight
-        )
+        kl_divs: NDArray = raw_kl_div * weight
 
         model_kl_divs.append(kl_divs.flatten())
 

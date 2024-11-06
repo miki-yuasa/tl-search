@@ -42,7 +42,10 @@ if __name__ == "__main__":
     warm_start_mode: Literal["target", "parent", None] = None
     reward_threshold: float = 0.02
     episode_length_sigma: float | None = 2 if warm_start_mode == "target" else None
-    kl_div_suffix: str | None = "parking_exp1"
+    kl_div_suffix: str | None = "parking_exp2_unweighted"
+    max_extended_steps: int = 3
+    expand_search: bool = True
+    kl_div_weighted: bool = False
 
     target_spec: str | None = "F(psi_ego_goal) & G(!psi_ego_adv & !psi_ego_wall)"
 
@@ -150,7 +153,8 @@ if __name__ == "__main__":
             suffix = ""
 
     log_suffix: str = (
-        f"{kl_div_suffix}_extended_" if kl_div_suffix is not None else "extended_"
+        (f"{kl_div_suffix}_extended_" if kl_div_suffix is not None else "extended_")
+        + f"filtered_{reward_threshold}_extended_{max_extended_steps}_expanded_{expand_search}_weighted_{kl_div_weighted}_"
     )
 
     dir_name: str = "parking"
@@ -338,6 +342,8 @@ if __name__ == "__main__":
             episode_length_sigma=episode_length_sigma,
             warm_start_path=None,
             kl_div_suffix=kl_div_suffix,
+            max_extended_steps=max_extended_steps,
+            expand_search=expand_search,
         )
         local_optimum_nodes.append(node_trace[-1])
         local_optimum_specs.append(spec_trace[-1])
