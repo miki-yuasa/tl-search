@@ -1,3 +1,5 @@
+import os
+
 from typing import Literal
 import numpy as np
 from stable_baselines3 import SAC, HerReplayBuffer
@@ -7,9 +9,11 @@ from tl_search.common.io import spec2title
 
 from tl_search.envs.tl_parking import TLAdversarialParkingEnv
 
-use_saved_model: bool = True
+use_saved_model: bool = False
 
-tl_spec: str = "F(!psi_ego_adv & psi_ego_wall) & G(!psi_ego_goal)"
+tl_spec: str = (
+    "F(psi_ego_goal) & G(!psi_ego_adv & !psi_ego_wall)"  # "F(!psi_ego_adv & psi_ego_wall) & G(!psi_ego_goal)"
+)
 
 total_timesteps = 100_000
 net_arch: list[int] = [512 for _ in range(3)]
@@ -118,4 +122,6 @@ while True:
 
 demo_env.close()
 
+# Create directory if not exists
+os.makedirs(os.path.dirname(animation_save_path), exist_ok=True)
 imageio.mimsave(animation_save_path, frames, fps=15, loop=0)
