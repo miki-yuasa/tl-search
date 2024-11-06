@@ -170,9 +170,9 @@ model_kl_divs: list[NDArray] = []
 
 env = TLAdversarialParkingEnv(target_spec, config, obs_props, atom_pred_dict)
 
-rep_gaus_means_list: list[NDArray[np.float_]] = []
-rep_gaus_stds_list: list[NDArray[np.float_]] = []
-rep_trap_masks: list[NDArray[np.float_]] = []
+rep_gaus_means_list: list[NDArray[np.float64]] = []
+rep_gaus_stds_list: list[NDArray[np.float64]] = []
+rep_trap_masks: list[NDArray[np.float64]] = []
 
 spec_models = [SAC.load(model_path, env)]
 

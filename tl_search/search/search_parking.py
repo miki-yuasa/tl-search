@@ -53,8 +53,8 @@ def search_train_evaluate(
     animation_save_path: str | None,
     device: torch.device | str,
     window: int,
-    target_gaus_means_list: list[NDArray[np.float_]],
-    target_gaus_stds_list: list[NDArray[np.float_]],
+    target_gaus_means_list: list[NDArray[np.float64]],
+    target_gaus_stds_list: list[NDArray[np.float64]],
     target_trap_masks: list[NDArray],
     obs_list: list[dict[str, Any]],
     data_save_path: str,
@@ -427,8 +427,8 @@ def train_evaluate_multiprocess(
     animation_save_path: str | None,
     device: torch.device | str,
     window: int,
-    target_gaus_means_list: list[NDArray[np.float_]],
-    target_gaus_stds_list: list[NDArray[np.float_]],
+    target_gaus_means_list: list[NDArray[np.float64]],
+    target_gaus_stds_list: list[NDArray[np.float64]],
     target_trap_masks: list[NDArray],
     obs_list: list[dict[str, Any]],
     data_save_path: str,
@@ -495,8 +495,8 @@ def train_evaluate(
     animation_save_path: str | None,
     device: torch.device | str,
     window: int,
-    target_gaus_means_list: list[NDArray[np.float_]],
-    target_gaus_stds_list: list[NDArray[np.float_]],
+    target_gaus_means_list: list[NDArray[np.float64]],
+    target_gaus_stds_list: list[NDArray[np.float64]],
     target_trap_masks: list[NDArray],
     obs_list: list[dict[str, Any]],
     data_save_path: str,
@@ -568,8 +568,8 @@ def train_evaluate(
 def evaluate_models(
     env: TLAdversarialParkingEnv,
     device: torch.device | str,
-    target_gaus_means_list: list[NDArray[np.float_]],
-    target_gaus_stds_list: list[NDArray[np.float_]],
+    target_gaus_means_list: list[NDArray[np.float64]],
+    target_gaus_stds_list: list[NDArray[np.float64]],
     target_trap_masks: list[NDArray],
     spec_models: list[SAC],
     obs_list: list[dict[str, Any]],
@@ -644,9 +644,9 @@ def evaluate_models(
             kl_div_report = json.load(f)
 
     else:
-        rep_gaus_means_list: list[NDArray[np.float_]] = []
-        rep_gaus_stds_list: list[NDArray[np.float_]] = []
-        rep_trap_masks: list[NDArray[np.float_]] = []
+        rep_gaus_means_list: list[NDArray[np.float64]] = []
+        rep_gaus_stds_list: list[NDArray[np.float64]] = []
+        rep_trap_masks: list[NDArray[np.float64]] = []
 
         for i, model in enumerate(spec_models):
             print(
@@ -774,13 +774,13 @@ def get_action_distributions(
     return np.array(gaus_means), np.array(gaus_stds), np.array(trap_mask)
 
 
-def obs2kin_dict(obs: dict[str, NDArray[np.float_] | float]) -> dict[str, np.float_]:
-    ego_loc: NDArray[np.float_] = obs["achieved_goal"][0:2]
-    goal_loc: NDArray[np.float_] = obs["desired_goal"][0:2]
-    adv_loc: NDArray[np.float_] = obs["observation"].reshape(2, -1)[-1, 0:2]
+def obs2kin_dict(obs: dict[str, NDArray[np.float64] | float]) -> dict[str, np.float64]:
+    ego_loc: NDArray[np.float64] = obs["achieved_goal"][0:2]
+    goal_loc: NDArray[np.float64] = obs["desired_goal"][0:2]
+    adv_loc: NDArray[np.float64] = obs["observation"].reshape(2, -1)[-1, 0:2]
 
-    d_ego_goal: np.float_ = np.linalg.norm(ego_loc - goal_loc)
-    d_ego_dv: np.float_ = np.linalg.norm(ego_loc - adv_loc)
+    d_ego_goal: np.float64 = np.linalg.norm(ego_loc - goal_loc)
+    d_ego_dv: np.float64 = np.linalg.norm(ego_loc - adv_loc)
 
     wall_width: float = 70
     wall_height: float = 42
@@ -790,7 +790,7 @@ def obs2kin_dict(obs: dict[str, NDArray[np.float_] | float]) -> dict[str, np.flo
     wall_min_y: float = -wall_height / 2
     wall_max_y: float = wall_height / 2
 
-    d_ego_wall: np.float_ = np.min(
+    d_ego_wall: np.float64 = np.min(
         np.array(
             [
                 np.abs(ego_loc[0] - wall_min_x),
@@ -801,7 +801,7 @@ def obs2kin_dict(obs: dict[str, NDArray[np.float_] | float]) -> dict[str, np.flo
         )
     )
 
-    kin_dict: dict[str, np.float_] = {
+    kin_dict: dict[str, np.float64] = {
         "d_ego_goal": d_ego_goal,
         "d_ego_adv": d_ego_dv,
         "d_ego_wall": d_ego_wall,
@@ -811,7 +811,7 @@ def obs2kin_dict(obs: dict[str, NDArray[np.float_] | float]) -> dict[str, np.flo
 
 
 def select_max_entropy_spec_replicate(
-    rep_gaus_stds_list: list[NDArray[np.float_]],
+    rep_gaus_stds_list: list[NDArray[np.float64]],
     rep_trap_masks: list[NDArray],
 ) -> tuple[int, list[float], list[int]]:
     max_entropy: float = 0
@@ -839,8 +839,8 @@ def select_max_entropy_spec_replicate(
 
 @overload
 def gaussian_dist_entropy(
-    std: NDArray[np.float_],
-) -> NDArray[np.float_]: ...
+    std: NDArray[np.float64],
+) -> NDArray[np.float64]: ...
 @overload
 def gaussian_dist_entropy(
     std: float,
@@ -848,17 +848,17 @@ def gaussian_dist_entropy(
 
 
 def gaussian_dist_entropy(
-    std: NDArray[np.float_] | float,
-) -> NDArray[np.float_] | float:
+    std: NDArray[np.float64] | float,
+) -> NDArray[np.float64] | float:
     return 1 / 2 * (1 + np.log(2 * np.pi * np.square(std)))
 
 
 def gaussian_kl_div(
-    mean1: NDArray[np.float_],
-    std1: NDArray[np.float_],
-    mean2: NDArray[np.float_],
-    std2: NDArray[np.float_],
-) -> NDArray[np.float_]:
+    mean1: NDArray[np.float64],
+    std1: NDArray[np.float64],
+    mean2: NDArray[np.float64],
+    std2: NDArray[np.float64],
+) -> NDArray[np.float64]:
     return (
         np.log(std2 / std1)
         + (np.square(std1) + np.square(mean1 - mean2)) / (2 * np.square(std2))

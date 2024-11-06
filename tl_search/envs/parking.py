@@ -290,10 +290,10 @@ class KinematicGoalVehiclesObservation(KinematicsGoalObservation):
             ]
         )
 
-        veh_obs: NDArray[np.float_] = all_df[self.features].to_numpy(dtype=np.float_)
+        veh_obs: NDArray[np.float64] = all_df[self.features].to_numpy(dtype=np.float64)
 
-        ego_obs: NDArray[np.float_] = np.ravel(ego_df)
-        goal: NDArray[np.float_] = np.ravel(
+        ego_obs: NDArray[np.float64] = np.ravel(ego_df)
+        goal: NDArray[np.float64] = np.ravel(
             pd.DataFrame.from_records([self.env.goal.to_dict()])[self.features]
         )
         obs: dict[str, NDArray] = {

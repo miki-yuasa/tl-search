@@ -73,11 +73,11 @@ class TLAdversarialParkingEnv(AdversarialParkingEnv):
 
     def compute_reward(
         self,
-        achieved_goal: NDArray[np.float_],
-        desired_goal: NDArray[np.float_],
+        achieved_goal: NDArray[np.float64],
+        desired_goal: NDArray[np.float64],
         info: dict[str, Any] | list[dict[str, Any]],
         p: float = 0.5,
-    ) -> float | NDArray[np.float_]:
+    ) -> float | NDArray[np.float64]:
         """
         Proximity to the goal is rewarded
 
@@ -95,20 +95,20 @@ class TLAdversarialParkingEnv(AdversarialParkingEnv):
 
         num_features: int = len(self.config["observation"]["features"])
 
-        adversarial_agent_locs_tmp: list[NDArray[np.float_]] = [
+        adversarial_agent_locs_tmp: list[NDArray[np.float64]] = [
             info["adversarial_agent_obs"][0:2] for info in infos
         ]
         aut_states: list[int] = [info["aut_state"] for info in infos]
 
-        adv_locs: NDArray[np.float_] = np.array(adversarial_agent_locs_tmp)
-        ego_locs: NDArray[np.float_] = achieved_goal.reshape(-1, num_features)[:, 0:2]
-        goal_locs: NDArray[np.float_] = desired_goal.reshape(-1, num_features)[:, 0:2]
+        adv_locs: NDArray[np.float64] = np.array(adversarial_agent_locs_tmp)
+        ego_locs: NDArray[np.float64] = achieved_goal.reshape(-1, num_features)[:, 0:2]
+        goal_locs: NDArray[np.float64] = desired_goal.reshape(-1, num_features)[:, 0:2]
 
         # Compute the distance between the goal and the achieved goal
-        d_ego_goal: NDArray[np.float_] = np.linalg.norm(ego_locs - goal_locs, axis=-1)
+        d_ego_goal: NDArray[np.float64] = np.linalg.norm(ego_locs - goal_locs, axis=-1)
 
         # Compute the distance between the ego and the adversarial agents
-        d_ego_adv: NDArray[np.float_] = np.linalg.norm(ego_locs - adv_locs, axis=-1)
+        d_ego_adv: NDArray[np.float64] = np.linalg.norm(ego_locs - adv_locs, axis=-1)
 
         # Compute the distance between the ego and walls
         wall_width, wall_height = self.wall_width, self.wall_height
@@ -147,7 +147,7 @@ class TLAdversarialParkingEnv(AdversarialParkingEnv):
             rewards.append(reward)
 
         # Change the shape of the rewards
-        rewards_np: NDArray[np.float_] = np.array(rewards)
+        rewards_np: NDArray[np.float64] = np.array(rewards)
         rewards_np = rewards_np.reshape(-1, 1)
 
         output_reward = rewards_np[0] if rewards_np.size == 1 else rewards_np
@@ -236,7 +236,7 @@ class TLAdversarialParkingEnv(AdversarialParkingEnv):
 
 
 def atom_tl_ob2rob(
-    aut: TLAutomaton, kin_dict: dict[str, NDArray[np.float_] | np.float_]
+    aut: TLAutomaton, kin_dict: dict[str, NDArray[np.float64] | np.float64]
 ) -> tuple[dict[str, float], dict[str, float]]:
     """
     Compute robustnesses (rho) of the atomic TL porlocitions (psi) based on
@@ -246,7 +246,7 @@ def atom_tl_ob2rob(
     ----------
     aut: TLAutomaton
         automaton from a TL spec
-    kin_dict: dict[str, NDArray[np.float_]]
+    kin_dict: dict[str, NDArray[np.float64]]
         Kinematic information of the agents
 
     Returns

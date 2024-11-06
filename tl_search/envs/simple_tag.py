@@ -26,9 +26,9 @@ default_world: World = {
 class Object(TypedDict):
     size: float
     color: str
-    pos: NDArray[np.float_]
-    vel_polar: NotRequired[NDArray[np.float_]]
-    vel_cartesian: NotRequired[NDArray[np.float_]]
+    pos: NDArray[np.float64]
+    vel_polar: NotRequired[NDArray[np.float64]]
+    vel_cartesian: NotRequired[NDArray[np.float64]]
 
 
 class Info(TypedDict):
@@ -87,19 +87,19 @@ class Field:
 
     @staticmethod
     def compute_new_pos(
-        current_pos: NDArray[np.float_], vel_polar: NDArray[np.float_], bound: float
-    ) -> NDArray[np.float_]:
+        current_pos: NDArray[np.float64], vel_polar: NDArray[np.float64], bound: float
+    ) -> NDArray[np.float64]:
         vel_cartesian = np.array(
             [vel_polar[0] * np.cos(vel_polar[1]), vel_polar[0] * np.sin(vel_polar[1])]
         )
 
-        new_pos: NDArray[np.float_] = current_pos + vel_cartesian
-        new_pos_clipped: NDArray[np.float_] = np.clip(new_pos, -bound, bound)
+        new_pos: NDArray[np.float64] = current_pos + vel_cartesian
+        new_pos_clipped: NDArray[np.float64] = np.clip(new_pos, -bound, bound)
 
         return new_pos_clipped
 
     @staticmethod
-    def cartesian2poler(vel_cartesian: NDArray[np.float_]) -> NDArray[np.float_]:
+    def cartesian2poler(vel_cartesian: NDArray[np.float64]) -> NDArray[np.float64]:
         vel_polar = np.array(
             [
                 np.linalg.norm(vel_cartesian),
@@ -109,7 +109,7 @@ class Field:
         return vel_polar
 
     @staticmethod
-    def polar2cartesian(vel_polar: NDArray[np.float_]) -> NDArray[np.float_]:
+    def polar2cartesian(vel_polar: NDArray[np.float64]) -> NDArray[np.float64]:
         vel_cartesian = np.array(
             [vel_polar[0] * np.cos(vel_polar[1]), vel_polar[0] * np.sin(vel_polar[1])]
         )
@@ -117,20 +117,20 @@ class Field:
 
     @staticmethod
     def compute_cartesian_vel(
-        new_pos: NDArray[np.float_], current_pos: NDArray[np.float_]
-    ) -> NDArray[np.float_]:
+        new_pos: NDArray[np.float64], current_pos: NDArray[np.float64]
+    ) -> NDArray[np.float64]:
         vel_cartesian = new_pos - current_pos
         return vel_cartesian
 
     @staticmethod
     def compute_polar_vel(
-        new_pos: NDArray[np.float_], current_pos: NDArray[np.float_]
-    ) -> NDArray[np.float_]:
+        new_pos: NDArray[np.float64], current_pos: NDArray[np.float64]
+    ) -> NDArray[np.float64]:
         vel_cartesian = new_pos - current_pos
         vel_polar = Field.cartesian2poler(vel_cartesian)
         return vel_polar
 
-    def move_agent(self, action: NDArray[np.float_], bound: float) -> None:
+    def move_agent(self, action: NDArray[np.float64], bound: float) -> None:
         self.info["agent"]["pos"] = Field.compute_new_pos(
             self.info["agent"]["pos"], action, bound
         )

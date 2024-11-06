@@ -17,7 +17,7 @@ rw_means: NDArray = action_means
 rw_stds: NDArray = 5 * np.ones_like(action_stds)
 
 # Calculate the KL divergence
-kl_div: np.float_ = np.mean(
+kl_div: np.float64 = np.mean(
     gaussian_kl_div(rw_means, rw_stds, action_means, action_stds)
 )
 print(f"KL divergence: {kl_div}")
