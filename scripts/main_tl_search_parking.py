@@ -32,8 +32,8 @@ from tl_search.search.neighbor import create_neighbor_masks, initialize_node, sp
 from tl_search.search.sample import sample_obs
 
 if __name__ == "__main__":
-    run: int = 8
-    gpu: int = (run - 1) % 4
+    run: int = 7
+    gpu: int = 1  # (run - 1) % 4
     num_samples: int = 5000
     num_start: int = 1
     num_max_search_steps: int = 10
