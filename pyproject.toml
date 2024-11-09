@@ -18,10 +18,10 @@ stable-baselines3 = "^2.0.0a9"
 #torch = { version = "2.0.0+cu118", source = "torch" }
 shimmy = ">=0.2.1"
 spottl = "^2.11.6"
-gymnasium = "^0.29.1"
 highway-env = "^1.8.2"
 imageio = "^2.33.1"
 tensorboard = "^2.15.1"
+safety-robot-gym = {git = "https://github.com/miki-yuasa/safety-robot-gym.git"}
 
 
 [tool.poetry.group.dev.dependencies]
