@@ -34,7 +34,7 @@ from tl_search.search.neighbor import (
     nodes2specs,
 )
 from tl_search.tl.transition import find_trap_transitions
-from tl_search.train.tl_train_parking import train_replicate_tl_agent
+from tl_search.train.tl_train_push import train_replicate_tl_agent
 
 
 def search_train_evaluate(
@@ -894,3 +894,101 @@ def evaluate_policy(
         episode_lengths.append(episode_length)
 
     return episode_rewards, episode_lengths
+
+
+def train_exh_mp(
+    gpu: int,
+    num_process: int,
+    num_replicates: int,
+    n_envs: int,
+    seeds: list[int],
+    total_time_steps: int,
+    model_save_path: str,
+    learning_curve_path: str,
+    animation_save_path: str | None,
+    window: int,
+    data_save_path: str,
+    tl_specs: list[str],
+    obs_props: list[ObsProp],
+    atom_prep_dict: dict[str, str],
+    default_env_args: dict[str, Any] = {},
+    warm_start_path: str | None = None,
+) -> None:
+    input = [
+        (
+            num_replicates,
+            n_envs,
+            seeds,
+            total_time_steps,
+            model_save_path,
+            learning_curve_path,
+            animation_save_path,
+            torch.device(f"cuda:{gpu}"),
+            window,
+            data_save_path,
+            tl_spec,
+            obs_props,
+            atom_prep_dict,
+            default_env_args,
+            warm_start_path,
+        )
+        for tl_spec in tl_specs
+    ]
+
+    with Pool(num_process) as p:
+        p.starmap(train_exh, input)
+
+    p.close()
+    p.join()
+
+
+def train_exh(
+    num_replicates: int,
+    n_envs: int,
+    seeds: list[int],
+    total_time_steps: int,
+    model_save_path: str,
+    learning_curve_path: str,
+    animation_save_path: str | None,
+    device: torch.device | str,
+    window: int,
+    data_save_path: str,
+    tl_spec: str,
+    obs_props: list[ObsProp],
+    atom_prep_dict: dict[str, str],
+    default_env_args: dict[str, Any] = {},
+    warm_start_path: str | None = None,
+) -> None:
+    env = TLBlockedFetchPushEnv(
+        tl_spec, obs_props=obs_props, atom_pred_dict=atom_prep_dict, **default_env_args
+    )
+
+    warm_start_suffix: str = "_ws" if warm_start_path is not None else ""
+
+    try:
+        spec_models: list[TQC] = train_replicate_tl_agent(
+            num_replicates,
+            n_envs,
+            env,
+            seeds,
+            total_time_steps,
+            model_save_path.replace(
+                ".zip", f"_{spec2title(tl_spec)}{warm_start_suffix}.zip"
+            ),
+            learning_curve_path.replace(
+                ".png", f"_{spec2title(tl_spec)}{warm_start_suffix}.png"
+            ),
+            (
+                animation_save_path.replace(
+                    ".gif", f"_{spec2title(tl_spec)}{warm_start_suffix}.gif"
+                )
+                if animation_save_path is not None
+                else None
+            ),
+            device,
+            window,
+            warm_start_path,
+        )
+
+    except:
+        print(f"Failed to train {tl_spec}.")
