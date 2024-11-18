@@ -47,37 +47,29 @@ if __name__ == "__main__":
     expand_search: bool = True
     kl_div_weighted: bool = False
 
-    target_spec: str | None = "F(psi_ego_goal) & G(!psi_ego_adv & !psi_ego_wall)"
+    target_spec: str | None = "F(psi_blk_tar) & G(!psi_obs_moved & !psi_blk_fallen)"
 
     start_iter: int = 0
     start_specs: list[str | None] = [
-        "F(!psi_ego_goal) & G(psi_ego_adv|psi_ego_wall)",
-        "F(!psi_ego_adv&!psi_ego_wall) & G(psi_ego_goal)",
-        "F(psi_ego_wall) & G(!psi_ego_goal|psi_ego_adv)",
-        "F(psi_ego_adv|psi_ego_wall) & G(!psi_ego_goal)",
-        "F(!psi_ego_goal) & G(!psi_ego_adv&!psi_ego_wall)",
-        "F(psi_ego_wall) & G(psi_ego_goal&!psi_ego_adv)",
-        "F(!psi_ego_goal) & G(psi_ego_adv|psi_ego_wall)",
-        "F(!psi_ego_wall) & G(!psi_ego_goal&psi_ego_adv)",
         None,
         None,
     ]
 
     predicates: tuple[str, ...] = (
-        "psi_ego_goal",
-        "psi_ego_adv",
-        "psi_ego_wall",
+        "psi_blk_tar",
+        "psi_obs_moved",
+        "psi_blk_fallen",
     )
 
     n_envs: Final[int] = 25  # 50  # 20
-    total_timesteps: Final[int] = 100_000
+    total_timesteps: Final[int] = 2_000_000
     num_replicates: Final[int] = 1
     num_episodes: Final[int] = 200
     window: Final[int] = ceil(round(total_timesteps / 100))
 
     net_arch: list[int] = [512 for _ in range(3)]
 
-    tb_log_dir: str = f"out/logs/push_search/multistart_{kl_div_suffix}_sac_{run}/"
+    tb_log_dir: str = f"out/logs/push_search/multistart_{kl_div_suffix}_tqc_{run}/"
 
     policy_kwargs: dict[str, Any] = {
         "net_arch": [512, 512, 512],
@@ -143,23 +135,26 @@ if __name__ == "__main__":
 
     dir_name: str = "push"
 
+    common_dir_path: str = "search/push"
     target_model_path: str = (
-        f"out/models/search/push/sac_F(psi_ego_goal)_and_G(!psi_ego_adv_and_!psi_ego_wall).zip"
+        f"out/models/{common_dir_path}/tqc_F(psi_blk_tar)_and_G(!psi_obs_moved_and_!psi_blk_fallen).zip"
     )
     summary_log_path: str = (
-        f"out/data/search/push/multistart_{log_suffix}_sac_{run}{suffix}.json"
+        f"out/data/{common_dir_path}/multistart_{log_suffix}_tqc_{run}{suffix}.json"
     )
-    log_save_path: str = f"out/data/search/push/{log_suffix}sac{suffix}.json"
-    model_save_path: str = f"out/models/search/push/sac{suffix}.zip"
-    learning_curve_path: str = f"out/plots/reward_curve/search/push/sac{suffix}.png"
+    log_save_path: str = f"out/data/{common_dir_path}/{log_suffix}tqc{suffix}.json"
+    model_save_path: str = f"out/models/{common_dir_path}/tqc{suffix}.zip"
+    learning_curve_path: str = (
+        f"out/plots/reward_curve/{common_dir_path}/tqc{suffix}.png"
+    )
     animation_save_path: str | None = None
-    data_save_path: str = f"out/data/kl_div/push/kl_div_sac{suffix}.json"
+    data_save_path: str = f"out/data/kl_div/push/kl_div_tqc{suffix}.json"
     target_actions_path: str = (
-        f"out/data/search/dataset/action_probs_sac_{log_suffix}full.npz"
+        f"out/data/search/dataset/action_probs_tqc_{log_suffix}full.npz"
     )
     target_entropy_path: str = target_actions_path.replace(".npz", "_ent.json")
-    obs_list_path: str = f"out/data/search/dataset/obs_list_sac_full.pkl"
-    target_episode_path: str = f"out/data/search/dataset/episode_sac.json"
+    obs_list_path: str = f"out/data/search/dataset/obs_list_tqc_full.pkl"
+    target_episode_path: str = f"out/data/search/dataset/episode_tqc.json"
 
     seeds: list[int] = [
         random.randint(0, 10000) for _ in range(num_replicates)
