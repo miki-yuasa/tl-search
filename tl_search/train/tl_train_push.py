@@ -126,10 +126,10 @@ def train_replicate_tl_agent(
     warm_start_path: str | None = None,
     force_training: bool = False,
     no_returns: bool = False,
-) -> list[SAC]:
+) -> list[TQC]:
     lcs: list[tuple[NDArray, NDArray]] = []
 
-    models: list[SAC] = []
+    models: list[TQC] = []
 
     for i in range(num_replicates):
         print(f"Replicate {i + 1}/{num_replicates}")
