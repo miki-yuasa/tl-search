@@ -1,11 +1,14 @@
+import copy
 from math import ceil
 import multiprocessing as mp
 import random
 from typing import Any, Final
 
 from tl_search.common.typing import Exclusion, ObsProp, SpecNode
+from tl_search.envs.tl_push import TLBlockedFetchPushEnv
 from tl_search.search.search_push import train_exh_mp
 from tl_search.search.neighbor import create_all_nodes, nodes2specs
+from tl_search.utils import identity
 
 if __name__ == "__main__":
     warm_start: bool = False
@@ -17,7 +20,7 @@ if __name__ == "__main__":
     num_replicates: Final[int] = 1
     window: Final[int] = ceil(round(total_timesteps / 100))
 
-    gpus: tuple[int, ...] = (0, 1, 2, 3)
+    gpus: tuple[int, ...] = (0, 1, 2, 3, 4, 5)
 
     predicates: tuple[str, ...] = (
         "psi_blk_tar",
@@ -37,9 +40,9 @@ if __name__ == "__main__":
     data_save_path: str = f"out/data/kl_div/push/kl_div_tqc{suffix}.json"
 
     obs_props: list[ObsProp] = [
-        ObsProp("d_blk_tar", ["d_blk_tar"], lambda d_blk_tar: d_blk_tar),
-        ObsProp("d_obs_moved", ["d_obs_moved"], lambda d_obs_moved: d_obs_moved),
-        ObsProp("d_blk_fallen", ["d_blk_fallen"], lambda d_blk_fallen: d_blk_fallen),
+        ObsProp("d_blk_tar", ["d_blk_tar"], identity),
+        ObsProp("d_obs_moved", ["d_obs_moved"], identity),
+        ObsProp("d_blk_fallen", ["d_blk_fallen"], identity),
     ]
 
     default_distance_threshold: float = 0.05
@@ -58,6 +61,30 @@ if __name__ == "__main__":
         "max_episode_steps": 100,
     }
 
+    policy_kwargs: dict[str, Any] = {
+        "net_arch": [512, 512, 512],
+        "n_critics": 2,
+    }
+
+    tb_log_dir: str = f"out/logs/push_search/exh_tqc_{gpu}/"
+
+    tqc_config: dict[str, Any] = {
+        "policy": "MultiInputPolicy",
+        "buffer_size": int(1e6),
+        "batch_size": 2048,
+        "gamma": 0.95,
+        "learning_rate": 0.001,
+        "tau": 0.05,
+        "tensorboard_log": tb_log_dir,
+        "policy_kwargs": policy_kwargs,
+    }
+
+    her_kwargs = {
+        "n_sampled_goal": 4,
+        "goal_selection_strategy": "future",
+        "copy_info_dict": True,
+    }
+
     seeds: list[int] = [random.randint(0, 10000) for _ in range(num_replicates)]
 
     mp.set_start_method("spawn")
@@ -73,6 +100,8 @@ if __name__ == "__main__":
         // len(gpus)
     ]
 
+    gpu = gpu % 4
+
     train_exh_mp(
         gpu,
         num_process,
@@ -83,9 +112,11 @@ if __name__ == "__main__":
         model_save_path,
         learning_curve_path,
         animation_save_path,
+        tqc_config,
+        her_kwargs,
         window,
         data_save_path,
-        neighbor_specs,
+        searching_specs,
         obs_props,
         atom_pred_dict,
         env_config,

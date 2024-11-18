@@ -3,7 +3,8 @@ from typing import Literal, Any
 import numpy as np
 from numpy.typing import NDArray
 from gymnasium import spaces
-from safety_robot_gym.envs.fetch import MujocoBlockedFetchPushEnv
+from gymnasium.utils import EzPickle
+from safety_robot_gym.envs.fetch import MujocoBlockedFetchEnv
 from safety_robot_gym.envs.fetch.push import MODEL_XML_PATH
 
 from tl_search.common.typing import ObsProp, AutomatonStateStatus
@@ -25,7 +26,7 @@ atom_pred_dict: dict[str, str] = {
 }
 
 
-class TLBlockedFetchPushEnv(MujocoBlockedFetchPushEnv):
+class TLBlockedFetchPushEnv(MujocoBlockedFetchEnv, EzPickle):
     def __init__(
         self,
         tl_spec: str,
@@ -38,13 +39,10 @@ class TLBlockedFetchPushEnv(MujocoBlockedFetchPushEnv):
         max_episode_steps: int = 100,
         model_path: str = MODEL_XML_PATH,
         n_substeps: int = 20,
-        gripper_extra_height: float = 0.2,
-        target_in_the_air: bool = True,
         target_offset: float = 0,
         obj_range: float = 0.15,
         target_range: float = 0.15,
         distance_threshold: float = 0.05,
-        render_mode: str | None = "rgb_array",
         **kwargs,
     ):
         self.aut = TLAutomaton(tl_spec, atom_pred_dict, obs_props)
@@ -54,18 +52,48 @@ class TLBlockedFetchPushEnv(MujocoBlockedFetchPushEnv):
 
         self._aut_state: int = self.aut.start
 
-        super().__init__(
-            reward_type,
-            penalty_type,
-            dense_penalty_coef,
-            sparse_penalty_value,
-            max_episode_steps,
-            model_path,
-            n_substeps,
-            target_offset,
-            obj_range,
-            target_range,
-            distance_threshold,
+        initial_qpos = {
+            "robot0:slide0": 0.405,
+            "robot0:slide1": 0.48,
+            "robot0:slide2": 0.0,
+            "object0:joint": [1.25, 0.53, 0.4, 1.0, 0.0, 0.0, 0.0],
+        }
+        MujocoBlockedFetchEnv.__init__(
+            self,
+            model_path=model_path,
+            has_object=True,
+            block_gripper=True,
+            n_substeps=n_substeps,
+            gripper_extra_height=0.0,
+            target_in_the_air=False,
+            target_offset=target_offset,
+            obj_range=obj_range,
+            target_range=target_range,
+            distance_threshold=distance_threshold,
+            initial_qpos=initial_qpos,
+            reward_type=reward_type,
+            penalty_type=penalty_type,
+            max_episode_steps=max_episode_steps,
+            dense_penalty_coef=dense_penalty_coef,
+            sparse_penalty_value=sparse_penalty_value,
+            **kwargs,
+        )
+        EzPickle.__init__(
+            self,
+            tl_spec=tl_spec,
+            obs_props=obs_props,
+            atom_pred_dict=atom_pred_dict,
+            reward_type=reward_type,
+            penalty_type=penalty_type,
+            dense_penalty_coef=dense_penalty_coef,
+            sparse_penalty_value=sparse_penalty_value,
+            max_episode_steps=max_episode_steps,
+            model_path=model_path,
+            n_substeps=n_substeps,
+            target_offset=target_offset,
+            obj_range=obj_range,
+            target_range=target_range,
+            distance_threshold=distance_threshold,
             **kwargs,
         )
 

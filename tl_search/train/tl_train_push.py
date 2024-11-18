@@ -67,7 +67,7 @@ def train_tl_agent(
     training_env = copy.deepcopy(env)
     print("Training env")
     model = TQC(
-        training_env,
+        env=training_env,
         verbose=1,
         device=device,
         replay_buffer_class=HerReplayBuffer,
@@ -86,7 +86,7 @@ def train_tl_agent(
         )
     except:
         model = TQC(
-            training_env,
+            env=training_env,
             verbose=1,
             device=device,
             replay_buffer_class=HerReplayBuffer,
@@ -120,7 +120,7 @@ def train_replicate_tl_agent(
     learning_curve_path: str,
     animation_save_path: str | None,
     device: torch.device | str,
-    sac_kwargs: dict[str, Any],
+    tqc_kwargs: dict[str, Any],
     replay_buffer_kwargs: dict[str, Any],
     window: int,
     warm_start_path: str | None = None,
@@ -151,7 +151,7 @@ def train_replicate_tl_agent(
                 model_save_path.replace(".zip", f"_{i}.zip"),
                 learning_curve_path.replace(".png", f"_{i}.png"),
                 device,
-                sac_kwargs,
+                tqc_kwargs,
                 replay_buffer_kwargs,
                 window,
                 i,

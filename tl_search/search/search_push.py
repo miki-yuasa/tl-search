@@ -906,6 +906,8 @@ def train_exh_mp(
     model_save_path: str,
     learning_curve_path: str,
     animation_save_path: str | None,
+    tqc_kwargs: dict[str, Any],
+    replay_buffer_kwargs: dict[str, Any],
     window: int,
     data_save_path: str,
     tl_specs: list[str],
@@ -924,6 +926,8 @@ def train_exh_mp(
             learning_curve_path,
             animation_save_path,
             torch.device(f"cuda:{gpu}"),
+            tqc_kwargs,
+            replay_buffer_kwargs,
             window,
             data_save_path,
             tl_spec,
@@ -951,6 +955,8 @@ def train_exh(
     learning_curve_path: str,
     animation_save_path: str | None,
     device: torch.device | str,
+    tqc_kwargs: dict[str, Any],
+    replay_buffer_kwargs: dict[str, Any],
     window: int,
     data_save_path: str,
     tl_spec: str,
@@ -965,30 +971,31 @@ def train_exh(
 
     warm_start_suffix: str = "_ws" if warm_start_path is not None else ""
 
-    try:
-        spec_models: list[TQC] = train_replicate_tl_agent(
-            num_replicates,
-            n_envs,
-            env,
-            seeds,
-            total_time_steps,
-            model_save_path.replace(
-                ".zip", f"_{spec2title(tl_spec)}{warm_start_suffix}.zip"
-            ),
-            learning_curve_path.replace(
-                ".png", f"_{spec2title(tl_spec)}{warm_start_suffix}.png"
-            ),
-            (
-                animation_save_path.replace(
-                    ".gif", f"_{spec2title(tl_spec)}{warm_start_suffix}.gif"
-                )
-                if animation_save_path is not None
-                else None
-            ),
-            device,
-            window,
-            warm_start_path,
-        )
+    # try:
+    spec_models: list[TQC] = train_replicate_tl_agent(
+        num_replicates,
+        env,
+        seeds,
+        total_time_steps,
+        model_save_path.replace(
+            ".zip", f"_{spec2title(tl_spec)}{warm_start_suffix}.zip"
+        ),
+        learning_curve_path.replace(
+            ".png", f"_{spec2title(tl_spec)}{warm_start_suffix}.png"
+        ),
+        (
+            animation_save_path.replace(
+                ".gif", f"_{spec2title(tl_spec)}{warm_start_suffix}.gif"
+            )
+            if animation_save_path is not None
+            else None
+        ),
+        device,
+        tqc_kwargs,
+        replay_buffer_kwargs,
+        window,
+        warm_start_path,
+    )
 
-    except:
-        print(f"Failed to train {tl_spec}.")
+    # except:
+    #     print(f"Failed to train {tl_spec}.")
