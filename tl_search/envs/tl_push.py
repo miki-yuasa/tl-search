@@ -88,7 +88,7 @@ class TLBlockedFetchPushEnv(MujocoBlockedFetchPushEnv):
                 "d_obs_moved": info_dict["d_obs_moved"],
                 "d_blk_fallen": info_dict["d_blk_fallen"],
             }
-            atom_rob_dict, obs_dict = atom_tl_ob2rob(self.aut, info_dict)
+            atom_rob_dict, obs_dict = atom_tl_ob2rob(self.aut, kin_dict)
             reward, next_aut_state = tl_reward(
                 atom_rob_dict, self.aut, info_dict["aut_state"], True
             )
