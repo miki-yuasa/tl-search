@@ -7,8 +7,8 @@ from typing import Any, Final, Literal
 import numpy as np
 from numpy.typing import NDArray
 import torch
-from stable_baselines3 import SAC
 from stable_baselines3.common.evaluation import evaluate_policy
+from sb3_contrib import TQC
 
 from tl_search.common.io import spec2title
 from tl_search.common.typing import (
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     warm_start_mode: Literal["target", "parent", None] = None
     reward_threshold: float = 0.02
     episode_length_sigma: float | None = 2 if warm_start_mode == "target" else None
-    kl_div_suffix: str | None = "push_exp2_unweighted"
+    kl_div_suffix: str | None = "push_exp1"
     max_extended_steps: int = 3
     expand_search: bool = True
     kl_div_weighted: bool = False
@@ -101,49 +101,26 @@ if __name__ == "__main__":
         "copy_info_dict": True,
     }
 
-    config = {
-        "observation": {
-            "type": "KinematicsGoal",
-            "features": ["x", "y", "vx", "vy", "cos_h", "sin_h"],  # "heading"],
-            "scales": [1, 1, 5, 5, 1, 1],
-            "normalize": False,
-        },
-        "action": {"type": "ContinuousAction"},
-        "reward_weights": [1, 0.2, 0, 0, 0.1, 0.1],
-        "success_goal_reward": 0.05,
-        "collision_reward": -5,
-        "steering_range": np.deg2rad(45),
-        "simulation_frequency": 15,
-        "policy_frequency": 5,
-        "duration": 50,
-        "screen_width": 600,
-        "screen_height": 300,
-        "screen_center": "centering_position",
-        "centering_position": [0.5, 0.5],
-        "scaling": 7,
-        "controlled_vehicles": 1,
-        "vehicles_count": 0,
-        "adversarial_vehicle": True,
-        "add_walls": True,
-        "adversarial_vehicle_spawn_config": [
-            {"spawn_point": [-30, 4], "heading": 0, "speed": 5},
-            {"spawn_point": [-30, -4], "heading": 0, "speed": 5},
-            {"spawn_point": [30, -4], "heading": np.pi, "speed": 5},
-            {"spawn_point": [30, -4], "heading": np.pi, "speed": 5},
-        ],
-        "dense_reward": True,
+    env_config: dict[str, Any] = {
+        "render_mode": "rgb_array",
+        "reward_type": "dense",
+        "penalty_type": "dense",
+        "dense_penalty_coef": 0.01,
+        "sparse_penalty_value": 10,
+        "max_episode_steps": 100,
     }
 
     obs_props: list[ObsProp] = [
-        ObsProp("d_ego_goal", ["d_ego_goal"], return_input),
-        ObsProp("d_ego_adv", ["d_ego_adv"], return_input),
-        ObsProp("d_ego_wall", ["d_ego_wall"], return_input),
+        ObsProp("d_blk_tar", ["d_blk_tar"], lambda d_blk_tar: d_blk_tar),
+        ObsProp("d_obs_moved", ["d_obs_moved"], lambda d_obs_moved: d_obs_moved),
+        ObsProp("d_blk_fallen", ["d_blk_fallen"], lambda d_blk_fallen: d_blk_fallen),
     ]
 
+    default_distance_threshold: float = 0.05
     atom_pred_dict: dict[str, str] = {
-        "psi_ego_goal": "d_ego_goal < {}".format(2),
-        "psi_ego_adv": "d_ego_adv < {}".format(4),
-        "psi_ego_wall": "d_ego_wall < {}".format(5),
+        "psi_blk_tar": f"d_blk_tar < {default_distance_threshold}",
+        "psi_obs_moved": f"d_obs_moved < {default_distance_threshold}",
+        "psi_blk_fallen": f"d_blk_fallen > {default_distance_threshold}",
     }
 
     ref_num_replicates: int = 1
@@ -164,19 +141,19 @@ if __name__ == "__main__":
         + f"filtered_{reward_threshold}_extended_{max_extended_steps}_expanded_{expand_search}_weighted_{kl_div_weighted}_"
     )
 
-    dir_name: str = "parking"
+    dir_name: str = "push"
 
     target_model_path: str = (
-        f"out/models/search/parking/sac_F(psi_ego_goal)_and_G(!psi_ego_adv_and_!psi_ego_wall).zip"
+        f"out/models/search/push/sac_F(psi_ego_goal)_and_G(!psi_ego_adv_and_!psi_ego_wall).zip"
     )
     summary_log_path: str = (
-        f"out/data/search/parking/multistart_{log_suffix}_sac_{run}{suffix}.json"
+        f"out/data/search/push/multistart_{log_suffix}_sac_{run}{suffix}.json"
     )
-    log_save_path: str = f"out/data/search/parking/{log_suffix}sac{suffix}.json"
-    model_save_path: str = f"out/models/search/parking/sac{suffix}.zip"
-    learning_curve_path: str = f"out/plots/reward_curve/search/parking/sac{suffix}.png"
+    log_save_path: str = f"out/data/search/push/{log_suffix}sac{suffix}.json"
+    model_save_path: str = f"out/models/search/push/sac{suffix}.zip"
+    learning_curve_path: str = f"out/plots/reward_curve/search/push/sac{suffix}.png"
     animation_save_path: str | None = None
-    data_save_path: str = f"out/data/kl_div/parking/kl_div_sac{suffix}.json"
+    data_save_path: str = f"out/data/kl_div/push/kl_div_sac{suffix}.json"
     target_actions_path: str = (
         f"out/data/search/dataset/action_probs_sac_{log_suffix}full.npz"
     )
@@ -209,7 +186,9 @@ if __name__ == "__main__":
     else:
         pass
 
-    sample_env = TLAdversarialParkingEnv(target_spec, config, obs_props, atom_pred_dict)
+    sample_env = TLBlockedFetchPushEnv(
+        target_spec, obs_props, atom_pred_dict, **env_config
+    )
 
     obs_list: list[dict[str, Any]]
 
@@ -217,7 +196,7 @@ if __name__ == "__main__":
         with open(obs_list_path, "rb") as f:
             obs_list = pickle.load(f)
     else:
-        model = SAC.load(target_model_path, sample_env)
+        model = TQC.load(target_model_path, sample_env)
         obs_list = sample_obs(sample_env, model, num_samples)
 
         # Save the observations
@@ -235,8 +214,8 @@ if __name__ == "__main__":
         target_trap_masks = npz["masks"]
     else:
         print("Generating target actions...")
-        target_env = TLAdversarialParkingEnv(
-            target_spec, config, obs_props, atom_pred_dict
+        target_env = TLBlockedFetchPushEnv(
+            target_spec, obs_props, atom_pred_dict, **env_config
         )
 
         target_gaus_means_list = []
@@ -245,7 +224,7 @@ if __name__ == "__main__":
         print("Loading target model...")
         for i in range(num_replicates):
             print(f"Replicate {i}")
-            model = SAC.load(target_model_path.replace(".zip", f"_{i}.zip"), target_env)
+            model = TQC.load(target_model_path.replace(".zip", f"_{i}.zip"), target_env)
             action_probs: NDArray
             gaus_means, gaus_stds, trap_mask = get_action_distributions(
                 model, target_env, obs_list
@@ -267,7 +246,7 @@ if __name__ == "__main__":
         with open(target_episode_path, "r") as f:
             episode_length_report: EpisodeLengthReport = json.load(f)
     else:
-        model = SAC.load(target_model_path.replace(".zip", f"_{0}.zip"), sample_env)
+        model = TQC.load(target_model_path.replace(".zip", f"_{0}.zip"), sample_env)
         _, episode_lengths = evaluate_policy(
             model, sample_env, n_eval_episodes=num_episodes, return_episode_rewards=True
         )
@@ -340,9 +319,9 @@ if __name__ == "__main__":
             data_save_path,
             obs_props,
             atom_pred_dict,
-            sac_kwargs,
+            tqc_config,
             her_kwargs,
-            config,
+            env_config,
             search_start_iter=start_iter,
             episode_length_report=episode_length_report,
             reward_threshold=reward_threshold,

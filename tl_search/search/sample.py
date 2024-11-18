@@ -2,13 +2,15 @@ from typing import Any
 import random
 
 from stable_baselines3 import SAC
+from sb3_contrib import TQC
 
 from tl_search.envs.tl_parking import TLAdversarialParkingEnv
+from tl_search.envs.tl_push import TLBlockedFetchPushEnv
 
 
 def sample_obs(
-    env: TLAdversarialParkingEnv,
-    model: SAC,
+    env: TLAdversarialParkingEnv | TLBlockedFetchPushEnv,
+    model: SAC | TQC,
     num_samples: int,
     population_scale: float = 1.5,
 ) -> list[dict[str, Any]]:
