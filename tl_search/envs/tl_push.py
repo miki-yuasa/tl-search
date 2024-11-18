@@ -12,20 +12,20 @@ from tl_search.tl.synthesis import TLAutomaton
 from tl_search.tl.tl_parser import tl2rob
 
 obs_props: list[ObsProp] = [
-    ObsProp("d_grip_tar", ["d_grip_tar"], lambda d_grip_tar: d_grip_tar),
-    ObsProp("d_obs_moved", ["d_obs_moved"], lambda d_grip_ob: d_grip_ob),
-    ObsProp("d_block_fallen", ["d_block_fallen"], lambda d_block_fall: d_block_fall),
+    ObsProp("d_blk_tar", ["d_blk_tar"], lambda d_blk_tar: d_blk_tar),
+    ObsProp("d_obs_moved", ["d_obs_moved"], lambda d_obs_moved: d_obs_moved),
+    ObsProp("d_blk_fallen", ["d_blk_fallen"], lambda d_blk_fallen: d_blk_fallen),
 ]
 
 default_distance_threshold: float = 0.05
 atom_pred_dict: dict[str, str] = {
-    "psi_grip_tar": f"d_grip_tar < {default_distance_threshold}",
+    "psi_blk_tar": f"d_blk_tar < {default_distance_threshold}",
     "psi_obs_moved": f"d_obs_moved < {default_distance_threshold}",
-    "psi_block_fallen": f"d_block_fallen > {default_distance_threshold}",
+    "psi_blk_fallen": f"d_blk_fallen > {default_distance_threshold}",
 }
 
 
-class TLBlockedFetchPickAndPlaceEnv(MujocoBlockedFetchPushEnv):
+class TLBlockedFetchPushEnv(MujocoBlockedFetchPushEnv):
     def __init__(
         self,
         tl_spec: str,
@@ -62,8 +62,6 @@ class TLBlockedFetchPickAndPlaceEnv(MujocoBlockedFetchPushEnv):
             max_episode_steps,
             model_path,
             n_substeps,
-            gripper_extra_height,
-            target_in_the_air,
             target_offset,
             obj_range,
             target_range,
@@ -86,15 +84,35 @@ class TLBlockedFetchPickAndPlaceEnv(MujocoBlockedFetchPushEnv):
 
         for info_dict in info:
             kin_dict: dict[str, NDArray[np.float64]] = {
-                "d_grip_tar": info["d_grip_tar"],
-                "d_obs_moved": info["d_obs_moved"],
-                "d_block_fallen": info["d_block_fallen"],
+                "d_blk_tar": info_dict["d_blk_tar"],
+                "d_obs_moved": info_dict["d_obs_moved"],
+                "d_blk_fallen": info_dict["d_blk_fallen"],
             }
             atom_rob_dict, obs_dict = atom_tl_ob2rob(self.aut, info_dict)
             reward, next_aut_state = tl_reward(
                 atom_rob_dict, self.aut, info_dict["aut_state"], True
             )
             rewards.append(reward)
+
+        # Change the shape of the rewards
+        rewards_np: NDArray[np.float64] = np.array(rewards)
+        rewards_np = rewards_np.reshape(-1, 1)
+
+        output_reward = rewards_np[0] if rewards_np.size == 1 else rewards_np
+
+        if rewards_np.size == 1:
+            self._aut_state = next_aut_state
+            self._aut_state_traj.append(next_aut_state)
+            if next_aut_state in self.aut.goal_states:
+                self._status = "goal"
+            elif next_aut_state in self.aut.trap_states:
+                self._status = "trap"
+            else:
+                self._status = "intermediate"
+        else:
+            pass
+
+        return output_reward
 
     def _define_observation_space(self) -> spaces.Dict:
         obs = self._get_obs()
@@ -119,8 +137,13 @@ class TLBlockedFetchPickAndPlaceEnv(MujocoBlockedFetchPushEnv):
         obs["aut_state"] = np.array(self._aut_state)
         return obs
 
-    def reset(self) -> tuple[NDArray[np.float64], dict[str, Any]]:
-        obs, info = super().reset()
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: int | None = None,
+    ) -> tuple[NDArray[np.float64], dict[str, Any]]:
+        obs, info = super().reset(seed=seed, options=options)
         self._aut_state = self.aut.start
         self._aut_state_traj: list[int] = [self._aut_state]
         self._aut_status: AutomatonStateStatus = "intermediate"
@@ -130,23 +153,28 @@ class TLBlockedFetchPickAndPlaceEnv(MujocoBlockedFetchPushEnv):
         info: dict[str, Any] = super()._get_info()
         info["aut_state"] = self._aut_state
 
-        d_grip_tar: float = np.linalg.norm(info["obstacle_rel_pos"])
+        d_blk_tar: float = np.linalg.norm(info["goal"] - info["object_pos"])
         d_obs_moved: float = np.linalg.norm(
             info["obstacle_rel_pos"] - info["init_obstacle_pos"]
         )
-        d_block_fallen: float = -info["block_rel_pos"][2]
+        d_blk_fallen: float = -info["object_pos"][2]
 
-        info["d_grip_tar"] = d_grip_tar
+        info["d_blk_tar"] = d_blk_tar
         info["d_obs_moved"] = d_obs_moved
-        info["d_block_fallen"] = d_block_fallen
+        info["d_blk_fallen"] = d_blk_fallen
 
         return info
 
     def _is_success(self, achieved_goal: NDArray, desired_goal: NDArray) -> bool:
         return self._aut_state in self.aut.goal_states
 
-    def compute_terminated(self) -> bool:
-        terminated: bool = super().compute_terminated()
+    def compute_terminated(
+        self,
+        achieved_goal: NDArray[np.float64],
+        desired_goal: NDArray[np.float64],
+        info: dict[str, Any],
+    ) -> bool:
+        terminated: bool = super().compute_terminated(achieved_goal, desired_goal, info)
 
         in_trap_state: bool = self._aut_state in self.aut.trap_states
 
