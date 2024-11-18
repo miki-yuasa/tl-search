@@ -1,9 +1,9 @@
 import os
-from typing import Any, Literal
+from typing import Any
 
 import torch
 import imageio
-from stable_baselines3 import SAC, HerReplayBuffer
+from stable_baselines3 import HerReplayBuffer
 from stable_baselines3.common.callbacks import CheckpointCallback
 from sb3_contrib import TQC
 
@@ -13,9 +13,7 @@ from tl_search.envs.tl_push import TLBlockedFetchPushEnv
 gpu_id: int = 0
 total_timesteps: int = 2_000_000
 
-tl_spec: str = (
-    "F(psi_blk_tar) & G(!psi_obs_moved & !psi_blk_fallen)"  # "F(!psi_ego_adv & psi_ego_wall) & G(!psi_ego_goal)"
-)
+tl_spec: str = "F(psi_blk_tar) & G(!psi_obs_moved & !psi_blk_fallen)"
 
 restart_from_the_last_checkpoint: bool = False
 replay_only: bool = False
