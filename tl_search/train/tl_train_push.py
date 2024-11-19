@@ -169,15 +169,15 @@ def train_replicate_tl_agent(
                     else None
                 ),
             )
-            simulate_model(
-                model,
-                env,
-                (
-                    animation_save_path.replace(".gif", f"_{i}.gif")
-                    if animation_save_path is not None
-                    else None
-                ),
-            )
+            if animation_save_path is not None:
+                simulate_model(
+                    model,
+                    env,
+                    animation_save_path.replace(".gif", f"_{i}.gif"),
+                )
+            else:
+                pass
+
             lcs.append(lc)
 
         models.append(model)
