@@ -1,6 +1,7 @@
 import os
 
 import imageio
+import numpy as np
 
 import torch
 from stable_baselines3 import PPO
@@ -17,28 +18,37 @@ net_arch = [256, 256]
 
 device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
 
-env = safety_gymnasium.vector.make(
-    "SafetyCarGoal1-v0", render_mode="rgb_array", max_episode_steps=100
+if not os.path.exists(model_save_path + ".zip"):
+
+    env = safety_gymnasium.vector.make(
+        "SafetyCarGoal1-v0", render_mode="rgb_array", max_episode_steps=100
+    )
+    env = SafetyGymnasium2Gymnasium(env)
+
+    model = PPO(
+        "MlpPolicy",
+        env,
+        verbose=1,
+        tensorboard_log=tb_log_path,
+        device=device,
+        policy_kwargs=dict(net_arch=net_arch),
+    )
+
+    model.learn(total_timesteps=100000)
+
+    model.save(model_save_path)
+
+    env.close()
+else:
+    model = PPO.load(model_save_path, device=device)
+
+demo_env = safety_gymnasium.vector.make(
+    "SafetyCarGoal1-v0",
+    render_mode="rgb_array",
+    max_episode_steps=100,
+    camera_name="fixednear",
 )
-env = SafetyGymnasium2Gymnasium(env)
-
-model = PPO(
-    "MlpPolicy",
-    env,
-    verbose=1,
-    tensorboard_log=tb_log_path,
-    device=device,
-    policy_kwargs=dict(net_arch=net_arch),
-)
-
-model.learn(total_timesteps=100000)
-
-model.save(model_save_path)
-
-env.close()
-
-demo_env = safety_gymnasium.vector.make("SafetyCarGoal1-v0", render_mode="rgb_array")
-model = PPO.load(model_save_path, demo_env, device=device)
+demo_env = SafetyGymnasium2Gymnasium(demo_env)
 
 obs, _ = demo_env.reset()
 print(obs)
@@ -48,8 +58,9 @@ frames = []
 while True:
     action = model.predict(obs, deterministic=True)[0]
     obs, reward, terminated, truncated, info = demo_env.step(action)
+    print(obs)
     print(reward)
-    frames.append(demo_env.render())
+    frames.append((demo_env.render() * 255).astype(np.uint8))
     if terminated or truncated:
         print(obs)
         break
