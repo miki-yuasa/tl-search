@@ -1,3 +1,4 @@
+import os
 import pickle
 from tl_search.common.io import spec2title
 from tl_search.common.typing import Combination, Exclusion, SpecNode, ValueTable
@@ -24,6 +25,7 @@ enemy_policy_mode: str = "patrol"
 
 node_path: str = f"out/nodes/{enemy_policy_mode}/{spec2title(node2spec(node))}.pkl"
 
+os.makedirs(os.path.dirname(node_path), exist_ok=True)
 with open(node_path, "wb") as f:
     pickle.dump(node, f)
 

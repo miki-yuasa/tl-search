@@ -195,6 +195,7 @@ if __name__ == "__main__":
         obs_list = sample_obs(sample_env, model, num_samples)
 
         # Save the observations
+        os.makedirs(os.path.dirname(obs_list_path), exist_ok=True)
         with open(obs_list_path, "wb") as f:
             pickle.dump(obs_list, f)
 
@@ -251,6 +252,7 @@ if __name__ == "__main__":
             "max": float(np.max(episode_lengths)),
             "min": float(np.min(episode_lengths)),
         }
+        os.makedirs(os.path.dirname(target_episode_path), exist_ok=True)
         with open(target_episode_path, "w") as f:
             json.dump(episode_length_report, f, indent=4)
 
@@ -272,6 +274,7 @@ if __name__ == "__main__":
             "num_non_trap_states": num_non_trap_states,
         }
 
+        os.makedirs(os.path.dirname(target_entropy_path), exist_ok=True)
         with open(target_entropy_path, "w") as f:
             json.dump(target_entropy_dict, f, indent=4)
 
@@ -346,5 +349,6 @@ if __name__ == "__main__":
         "searches_traces": searches_traces,
     }
 
+    os.makedirs(os.path.dirname(summary_log_path), exist_ok=True)
     with open(summary_log_path, "w") as f:
         json.dump(multistart_log, f, indent=4)

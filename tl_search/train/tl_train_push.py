@@ -185,6 +185,10 @@ def train_replicate_tl_agent(
     try:
         if len(lcs) > 0:
             plot_ablation(lcs, learning_curve_path, total_time_steps, window)
+            os.makedirs(
+                os.path.dirname(learning_curve_path.replace(".png", ".pkl")),
+                exist_ok=True,
+            )
             with open(learning_curve_path.replace(".png", ".pkl"), "wb") as f:
                 pickle.dump(lcs, f)
         else:
@@ -194,6 +198,9 @@ def train_replicate_tl_agent(
         print(learning_curve_path)
         print("skipping...")
 
+    os.makedirs(
+        os.path.dirname(model_save_path.replace(".zip", f"_seeds.json")), exist_ok=True
+    )
     with open(model_save_path.replace(".zip", f"_seeds.json"), "w") as f:
         json.dump(
             {
@@ -229,4 +236,5 @@ def simulate_model(
     demo_env.close()
 
     if animation_save_path is not None:
+        os.makedirs(os.path.dirname(animation_save_path), exist_ok=True)
         imageio.mimsave(animation_save_path, frames, fps=15, loop=0)

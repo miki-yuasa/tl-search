@@ -118,6 +118,7 @@ def search_train_evaluate(
 
         nodes_save_path: str = log_save_path.replace(".json", "_nodes.pkl")
 
+        os.makedirs(os.path.dirname(nodes_save_path), exist_ok=True)
         with open(nodes_save_path, "wb") as f:
             pickle.dump(neighbor_nodes, f)
 
@@ -139,6 +140,7 @@ def search_train_evaluate(
 
         search_log_path: str = log_save_path.replace(".json", "_search.json")
 
+        os.makedirs(os.path.dirname(search_log_path), exist_ok=True)
         with open(search_log_path, "w") as f:
             json.dump(search_log, f, indent=4)
 
@@ -379,15 +381,19 @@ def search_train_evaluate(
         pos_reward_log_path: str = log_save_path.replace(".json", "_pos_reward.json")
         sorted_log_path: str = log_save_path.replace(".json", "_sorted.json")
 
+        os.makedirs(os.path.dirname(search_log_path), exist_ok=True)
         with open(search_log_path, "w") as f:
             json.dump(search_log, f, indent=4)
 
+        os.makedirs(os.path.dirname(pos_reward_log_path), exist_ok=True)
         with open(pos_reward_log_path, "w") as f:
             json.dump(filtered_log, f, indent=4)
 
+        os.makedirs(os.path.dirname(sorted_log_path), exist_ok=True)
         with open(sorted_log_path, "w") as f:
             json.dump(sorted_log, f, indent=4)
 
+        os.makedirs(os.path.dirname(nodes_save_path), exist_ok=True)
         with open(nodes_save_path, "wb") as f:
             pickle.dump(neighbor_nodes, f)
 
@@ -626,6 +632,7 @@ def evaluate_models(
 
         print(f"Saved reward and episode length for {env._tl_spec}...")
         print(f"- path: {reward_save_path}")
+        os.makedirs(os.path.dirname(reward_save_path), exist_ok=True)
         with open(reward_save_path, "w") as f:
             json.dump(reward_report, f, indent=4)
 
@@ -633,6 +640,7 @@ def evaluate_models(
 
         print(f"Saved episode length for {env._tl_spec}...")
         print(f"- path: {episode_length_save_path}")
+        os.makedirs(os.path.dirname(episode_length_save_path), exist_ok=True)
         with open(episode_length_save_path, "w") as f:
             json.dump(episode_length_report, f, indent=4)
 
@@ -672,6 +680,7 @@ def evaluate_models(
             "num_non_trap_states": num_non_trap_states,
         }
 
+        os.makedirs(os.path.dirname(entropy_save_path), exist_ok=True)
         with open(entropy_save_path, "w") as f:
             json.dump(entropy_report, f, indent=4)
 
@@ -740,6 +749,7 @@ def evaluate_models(
         )
 
         print(f"Saved KL divergence for {env._tl_spec}...")
+        os.makedirs(os.path.dirname(kl_div_save_path), exist_ok=True)
         with open(kl_div_save_path, "w") as f:
             json.dump(kl_div_report, f, indent=4)
 

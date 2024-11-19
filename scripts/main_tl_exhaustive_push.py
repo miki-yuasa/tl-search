@@ -10,7 +10,7 @@ from tl_search.utils import identity
 
 if __name__ == "__main__":
     warm_start: bool = False
-    gpu: int = 0
+    gpu: int = 3
     num_process: int = 24
 
     n_envs: Final[int] = 25  # 50  # 20

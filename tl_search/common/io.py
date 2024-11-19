@@ -14,6 +14,7 @@ def save_json(
     path: str,
 ) -> None:
     filepath = get_file_path(path)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "w") as f:
         f.write(config)
 
