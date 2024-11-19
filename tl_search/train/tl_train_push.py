@@ -6,6 +6,7 @@ import imageio
 from numpy.typing import NDArray
 import torch
 from stable_baselines3 import HerReplayBuffer
+from stable_baselines3.common.callbacks import CheckpointCallback
 from sb3_contrib import TQC
 
 from tl_search.common.io import spec2title
@@ -75,14 +76,19 @@ def train_tl_agent(
         **tqc_kwargs,
     )
 
-    tb_log_name: str = f"sac_{spec2title(env._tl_spec)}" + (
+    tb_log_name: str = f"tqc_{spec2title(env._tl_spec)}" + (
         "" if rep_idx is None else f"_{rep_idx}"
+    )
+
+    checkpoint_callback = CheckpointCallback(
+        save_freq=200_000,
+        save_path="out/models/push/ckpts",
+        name_prefix=rl_model_path,
     )
 
     try:
         model.learn(
-            total_timesteps,
-            tb_log_name=tb_log_name,
+            total_timesteps, tb_log_name=tb_log_name, callback=checkpoint_callback
         )
     except:
         model = TQC(
@@ -94,7 +100,9 @@ def train_tl_agent(
             **tqc_kwargs,
         )
         try:
-            model.learn(total_timesteps, tb_log_name=tb_log_name)
+            model.learn(
+                total_timesteps, tb_log_name=tb_log_name, callback=checkpoint_callback
+            )
         except:
             raise Exception("Failed to train model")
 

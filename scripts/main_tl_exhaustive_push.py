@@ -1,26 +1,24 @@
-import copy
 from math import ceil
 import multiprocessing as mp
 import random
 from typing import Any, Final
 
 from tl_search.common.typing import Exclusion, ObsProp, SpecNode
-from tl_search.envs.tl_push import TLBlockedFetchPushEnv
 from tl_search.search.search_push import train_exh_mp
 from tl_search.search.neighbor import create_all_nodes, nodes2specs
 from tl_search.utils import identity
 
 if __name__ == "__main__":
     warm_start: bool = False
-    gpu: int = 1
-    num_process: int = 15
+    gpu: int = 0
+    num_process: int = 24
 
     n_envs: Final[int] = 25  # 50  # 20
     total_timesteps: Final[int] = 2_000_000
     num_replicates: Final[int] = 1
     window: Final[int] = ceil(round(total_timesteps / 100))
 
-    gpus: tuple[int, ...] = (0, 1, 2, 3, 4, 5)
+    gpus: tuple[int, ...] = (0, 1, 2, 3)
 
     predicates: tuple[str, ...] = (
         "psi_blk_tar",
