@@ -8,21 +8,22 @@ readme = "README.md"
 packages = [{ include = "tl_search" }]
 
 [tool.poetry.dependencies]
-python = "^3.10,<3.12"
+python = "^3.10,<3.11"
 matplotlib = "^3.7.1"
 seaborn = "^0.12.2"
 scikit-learn = "^1.2.2"
 gym = "^0.26"
 dataclasses-json = "^0.5.7"
 stable-baselines3 = "^2.0.0a9"
-#torch = { version = "2.0.0+cu118", source = "torch" }
 shimmy = ">=0.2.1"
 spottl = "^2.11.6"
 highway-env = "^1.8.2"
 imageio = "^2.33.1"
 tensorboard = "^2.15.1"
-safety-robot-gym = {git = "https://github.com/miki-yuasa/safety-robot-gym.git"}
-sb3-contrib = "^2.4.0"
+safety-robot-gym = { git = "https://github.com/miki-yuasa/safety-robot-gym.git" }
+sb3-contrib = "^2.0.0"
+pygame = "^2.1.0"
+safety-gymnasium = "^1.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
