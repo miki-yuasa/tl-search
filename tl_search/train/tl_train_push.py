@@ -81,7 +81,7 @@ def train_tl_agent(
     )
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=200_000,
+        save_freq=100_000,
         save_path="out/models/push/ckpts",
         name_prefix=rl_model_path,
     )
