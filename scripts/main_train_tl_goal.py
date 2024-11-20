@@ -14,18 +14,21 @@ from tl_search.envs.tl_safety_builder import CustomBuilder
 
 tl_spec: str = "F(psi_gl) & G(!psi_hz & !psi_vs)"
 gpu_id: int = 1
-total_timesteps: int = 1_000_000
+total_timesteps: int = 600_000
 task_name: str = "SafetyCarTLGoal1-v0"
 
 continue_from_checkpoint: bool = False
+replay_only: bool = False
 
 tl_title: str = spec2title(tl_spec)
 net_arch = [512, 512]  # [256, 256]
-replicate: str = f"{net_arch[0]}_0"
-file_title: str = f"goal_ppo_{tl_title}_{replicate}"
+replicate: str = "0"
+file_title: str = (
+    f"goal_ppo_{tl_title}_{net_arch[0]}_{total_timesteps/1_000_000}M_{replicate}"
+)
 common_dir_path: str = "search/goal"
 model_save_path: str = f"out/models/{common_dir_path}/{file_title}.zip"
-animation_save_path: str = f"out/plots/animations/{common_dir_path}/{file_title}.gif"
+animation_save_path: str = f"out/plots/animation/{common_dir_path}/{file_title}.gif"
 tb_log_path: str = "out/logs/tl_goal"
 ckpt_dir: str = "out/models/search/goal/ckpts"
 
@@ -71,7 +74,7 @@ else:
         print(f"Loading model from the last checkpoint {model_save_path}")
         total_timesteps = total_timesteps - ckpt_step
         model = PPO.load(model_save_path, env=env, device=device)
-    else:
+    elif not replay_only:
         model = PPO(
             "MlpPolicy",
             env,
@@ -80,23 +83,28 @@ else:
             device=device,
             policy_kwargs=dict(net_arch=net_arch),
         )
+    else:
+        pass
 
-    checkpoint_callback = CheckpointCallback(
-        save_freq=500_000,
-        save_path=ckpt_dir,
-        name_prefix=file_title,
-    )
+    if not replay_only:
+        checkpoint_callback = CheckpointCallback(
+            save_freq=500_000,
+            save_path=ckpt_dir,
+            name_prefix=file_title,
+        )
 
-    model.learn(
-        total_timesteps=total_timesteps,
-        tb_log_name=file_title,
-        callback=checkpoint_callback,
-        reset_num_timesteps=not continue_from_checkpoint,
-    )
+        model.learn(
+            total_timesteps=total_timesteps,
+            tb_log_name=file_title,
+            callback=checkpoint_callback,
+            reset_num_timesteps=not continue_from_checkpoint,
+        )
 
-    model.save(model_save_path)
+        model.save(model_save_path)
 
-    env.close()
+        env.close()
+    else:
+        pass
 
 
 demo_env = CustomBuilder(**env_config)
