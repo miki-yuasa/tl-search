@@ -17,10 +17,10 @@ gpu_id: int = 0
 total_timesteps: int = 1_000_000
 task_name: str = "SafetyCarTLGoal1-v0"
 
-continue_from_checkpoint: bool = True
+continue_from_checkpoint: bool = False
 
 tl_title: str = spec2title(tl_spec)
-replicate: str = "0"
+replicate: str = "512_0"
 file_title: str = f"goal_ppo_{tl_title}_{replicate}"
 common_dir_path: str = "search/goal"
 model_save_path: str = f"out/models/{common_dir_path}/{file_title}.zip"
@@ -28,7 +28,7 @@ animation_save_path: str = f"out/plots/animations/{common_dir_path}/{file_title}
 tb_log_path: str = "out/logs/tl_goal"
 ckpt_dir: str = "out/models/search/goal/ckpts"
 
-net_arch = [256, 256]
+net_arch = [512, 512]  # [256, 256]
 
 device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
 task_config: dict[str, Any] = {
@@ -84,7 +84,7 @@ else:
     checkpoint_callback = CheckpointCallback(
         save_freq=500_000,
         save_path=ckpt_dir,
-        name_prefix=model_save_path.split("/")[-1],
+        name_prefix=file_title,
     )
 
     model.learn(

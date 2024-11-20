@@ -1,5 +1,5 @@
 import os
-from typing import Literal
+from typing import Any, Literal
 
 import imageio
 import numpy as np
@@ -15,13 +15,24 @@ from tl_search.envs.tl_safety_builder import CustomBuilder
 env_type: Literal["vanilla", "terminal"] = "terminal"
 
 gpu_id: int = 0
-total_timesteps: int = 500_000
+total_timesteps: int = 1_000_000
 
-model_save_path: str = "out/models/safety_car_goal1/ppo_0"
-animation_save_path: str = "out/plots/animations/safety_car_goal1/ppo_0.gif"
+file_name: str = "safety_car_goal1_ppo_512_0"
+model_save_path: str = f"out/models/safety_car_goal1/{file_name}.zip"
+animation_save_path: str = f"out/plots/animations/safety_car_goal1/{file_name}.gif"
 tb_log_path: str = "out/logs/safety_car_goal1/"
 
-net_arch = [256, 256]
+env_config: dict[str, Any] = {
+    "config": {"agent_name": "Car"},
+    "task_id": "SafetyCarGoal1-v0",
+    "render_mode": "rgb_array",
+    "max_episode_steps": 500,
+    "width": 512,
+    "height": 512,
+    "camera_name": "fixedfar",
+}
+
+net_arch = [5112, 512]
 
 device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
 
@@ -31,17 +42,9 @@ if env_type == "vanilla":
     )
     env = SafetyGymnasium2Gymnasium(env)
 else:
-    env = CustomBuilder(
-        config={"agent_name": "Car"},
-        task_id="SafetyCarGoal1-v0",
-        render_mode="rgb_array",
-        max_episode_steps=500,
-        width=512,
-        height=512,
-        camera_name="fixedfar",
-    )
+    env = CustomBuilder(**env_config)
 
-if not os.path.exists(model_save_path + ".zip"):
+if not os.path.exists(model_save_path):
 
     model = PPO(
         "MlpPolicy",
@@ -55,10 +58,14 @@ if not os.path.exists(model_save_path + ".zip"):
     checkpoint_callback = CheckpointCallback(
         save_freq=100_000,
         save_path="out/models/safety_car_goal1/ckpts",
-        name_prefix=model_save_path.split("/")[-1],
+        name_prefix=file_name,
     )
 
-    model.learn(total_timesteps=total_timesteps)
+    model.learn(
+        total_timesteps=total_timesteps,
+        callback=checkpoint_callback,
+        tb_log_name=file_name,
+    )
 
     model.save(model_save_path)
 
@@ -77,15 +84,7 @@ if env_type == "vanilla":
     )
     demo_env = SafetyGymnasium2Gymnasium(demo_env)
 else:
-    demo_env = CustomBuilder(
-        config={"agent_name": "Car"},
-        task_id="SafetyCarGoal1-v0",
-        render_mode="rgb_array",
-        max_episode_steps=500,
-        width=512,
-        height=512,
-        camera_name="fixedfar",
-    )
+    demo_env = CustomBuilder(**env_config)
 
 obs, _ = demo_env.reset()
 print(obs)
