@@ -9,7 +9,7 @@ from tl_search.search.neighbor import create_all_nodes, nodes2specs
 
 if __name__ == "__main__":
     warm_start: bool = False
-    gpu: int = 1
+    gpu: int = 0
     num_process: int = 24
 
     n_envs: Final[int] = 25  # 50  # 20
@@ -64,7 +64,9 @@ if __name__ == "__main__":
         "policy_kwargs": policy_kwargs,
     }
 
-    seeds: list[int] = [random.randint(0, 10000) for _ in range(num_replicates)]
+    seeds: list[int] = [
+        random.randint(0, 10000) for _ in range(int(num_replicates[-1]))
+    ]
 
     mp.set_start_method("spawn")
 
