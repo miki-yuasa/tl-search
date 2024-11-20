@@ -122,7 +122,8 @@ def tl_reward(
         # Weight for reward calculation
         alpha: float = 0.7
         beta: float = 0.5
-        gamma: float = 0.0001
+        gamma: float = 0.01
+        delta: float = 100
 
         if next_aut_state == curr_aut_state:
             # non_trap_robs.remove(trans_rob)
@@ -141,11 +142,11 @@ def tl_reward(
         else:
             if trans_rob in non_trap_robs:
                 reward = (
-                    10 * trans_rob
+                    delta * trans_rob
                 )  # alpha * trans_rob - (1 - alpha) * max(trap_robs)
             elif trans_rob in trap_robs:
                 reward = (
-                    -10 * trans_rob
+                    -delta * trans_rob
                 )  # -(1 - alpha) * max(non_trap_robs) - alpha * trans_rob
             else:
                 print(
