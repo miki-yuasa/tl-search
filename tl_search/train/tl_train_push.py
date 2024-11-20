@@ -76,9 +76,7 @@ def train_tl_agent(
         **tqc_kwargs,
     )
 
-    tb_log_name: str = f"tqc_{spec2title(env._tl_spec)}" + (
-        "" if rep_idx is None else f"_{rep_idx}"
-    )
+    tb_log_name: str = rl_model_path.split("/")[-1].replace(".zip", "")
 
     checkpoint_callback = CheckpointCallback(
         save_freq=100_000,
@@ -86,25 +84,44 @@ def train_tl_agent(
         name_prefix=rl_model_path,
     )
 
-    try:
-        model.learn(
-            total_timesteps, tb_log_name=tb_log_name, callback=checkpoint_callback
-        )
-    except:
-        model = TQC(
-            env=training_env,
-            verbose=1,
-            device=device,
-            replay_buffer_class=HerReplayBuffer,
-            replay_buffer_kwargs=replay_buffer_kwargs,
-            **tqc_kwargs,
-        )
+    # Check if the env can continue more than one step
+    count_env = copy.deepcopy(env)
+    count_env.reset()
+    step_count: int = 0
+    while True:
+        step_count += 1
+        _, _, terminated, truncated, _ = count_env.step(count_env.action_space.sample())
+        if terminated or truncated:
+            break
+
+    if step_count > 1:
+        print("Training policy")
         try:
             model.learn(
                 total_timesteps, tb_log_name=tb_log_name, callback=checkpoint_callback
             )
         except:
-            raise Exception("Failed to train model")
+            model = TQC(
+                env=training_env,
+                verbose=1,
+                device=device,
+                replay_buffer_class=HerReplayBuffer,
+                replay_buffer_kwargs=replay_buffer_kwargs,
+                **tqc_kwargs,
+            )
+            try:
+                model.learn(
+                    total_timesteps,
+                    tb_log_name=tb_log_name,
+                    callback=checkpoint_callback,
+                )
+            except:
+                raise Exception("Failed to train model")
+
+    else:
+        print(
+            f"Skipping training for {env._tl_spec}, the environment can't continue more than one step"
+        )
 
     model.save(rl_model_path)
     try:
