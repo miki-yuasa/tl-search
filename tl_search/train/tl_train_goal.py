@@ -171,7 +171,7 @@ def train_replicate_tl_agent(
     models: list[PPO] = []
 
     for rep_num in num_replicates:
-        print(f"Replicate {rep_num}/{num_replicates}")
+        print(f"Replicate {rep_num} from {num_replicates}")
         print(f"Model path: {model_save_path.replace('.zip', f'_{rep_num}.zip')}")
         if (
             os.path.exists(model_save_path.replace(".zip", f"_{rep_num}.zip"))

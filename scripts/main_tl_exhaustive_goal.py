@@ -65,7 +65,7 @@ if __name__ == "__main__":
     }
 
     seeds: list[int] = [
-        random.randint(0, 10000) for _ in range(int(num_replicates[-1]))
+        random.randint(0, 10000) for _ in range(int(num_replicates[-1]) + 1)
     ]
 
     mp.set_start_method("spawn")
