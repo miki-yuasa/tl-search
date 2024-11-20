@@ -5,28 +5,26 @@ import imageio
 
 from numpy.typing import NDArray
 import torch
-from stable_baselines3 import HerReplayBuffer
+from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
-from sb3_contrib import TQC
 
 from tl_search.common.io import spec2title
 from tl_search.common.plotter import plot_ablation, plot_results
-from tl_search.envs.tl_push import TLBlockedFetchPushEnv
+from tl_search.envs.tl_safety_builder import CustomBuilder
 
 
 def train_tl_agent(
-    env: TLBlockedFetchPushEnv,
+    env: CustomBuilder,
     seed: int | None,
     total_timesteps: int,
     rl_model_path: str,
     learning_curve_path: str,
     device: torch.device | str,
-    tqc_kwargs: dict[str, Any],
-    replay_buffer_kwargs: dict[str, Any],
+    algo_kwargs: dict[str, Any],
     window: int = 10,
     rep_idx: int | None = None,
     warm_start_path: str | None = None,
-) -> tuple[TQC, tuple[NDArray, NDArray]]:
+) -> tuple[PPO, tuple[NDArray, NDArray]]:
     """
     Train a TL RL agent
 
@@ -57,7 +55,7 @@ def train_tl_agent(
         the learning curve
     """
     log_path: str = (
-        f"./tmp/log/search/{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{spec2title(env._tl_spec)}/"
+        f"./tmp/log/search/{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{spec2title(env.task.tl_spec)}/"
         + ("" if rep_idx is None else f"{rep_idx}/")
     )
 
@@ -67,16 +65,14 @@ def train_tl_agent(
 
     training_env = copy.deepcopy(env)
     print("Training env")
-    model = TQC(
+    model = PPO(
         env=training_env,
         verbose=1,
         device=device,
-        replay_buffer_class=HerReplayBuffer,
-        replay_buffer_kwargs=replay_buffer_kwargs,
-        **tqc_kwargs,
+        **algo_kwargs,
     )
 
-    tb_log_name: str = f"tqc_{spec2title(env._tl_spec)}" + (
+    tb_log_name: str = f"tqc_{spec2title(env.task.tl_spec)}" + (
         "" if rep_idx is None else f"_{rep_idx}"
     )
 
@@ -91,13 +87,11 @@ def train_tl_agent(
             total_timesteps, tb_log_name=tb_log_name, callback=checkpoint_callback
         )
     except:
-        model = TQC(
+        model = PPO(
             env=training_env,
             verbose=1,
             device=device,
-            replay_buffer_class=HerReplayBuffer,
-            replay_buffer_kwargs=replay_buffer_kwargs,
-            **tqc_kwargs,
+            **algo_kwargs,
         )
         try:
             model.learn(
@@ -112,7 +106,7 @@ def train_tl_agent(
             log_path, learning_curve_path, total_timesteps, window
         )
     except:
-        print(env._tl_spec)
+        print(env.task.tl_spec)
         print(log_path)
         lc = None
 
@@ -121,23 +115,22 @@ def train_tl_agent(
 
 def train_replicate_tl_agent(
     num_replicates: int,
-    env: TLBlockedFetchPushEnv,
+    env: CustomBuilder,
     seeds: list[int],
     total_time_steps: int,
     model_save_path: str,
     learning_curve_path: str,
     animation_save_path: str | None,
     device: torch.device | str,
-    tqc_kwargs: dict[str, Any],
-    replay_buffer_kwargs: dict[str, Any],
+    algo_kwargs: dict[str, Any],
     window: int,
     warm_start_path: str | None = None,
     force_training: bool = False,
     no_returns: bool = False,
-) -> list[TQC]:
+) -> list[PPO]:
     lcs: list[tuple[NDArray, NDArray]] = []
 
-    models: list[TQC] = []
+    models: list[PPO] = []
 
     for i in range(num_replicates):
         print(f"Replicate {i + 1}/{num_replicates}")
@@ -147,7 +140,7 @@ def train_replicate_tl_agent(
             and not force_training
         ):
             print("Model already exists, skipping training")
-            model = TQC.load(
+            model = PPO.load(
                 model_save_path.replace(".zip", f"_{i}.zip"), env, device=device
             )
 
@@ -159,8 +152,7 @@ def train_replicate_tl_agent(
                 model_save_path.replace(".zip", f"_{i}.zip"),
                 learning_curve_path.replace(".png", f"_{i}.png"),
                 device,
-                tqc_kwargs,
-                replay_buffer_kwargs,
+                algo_kwargs,
                 window,
                 i,
                 (
@@ -218,8 +210,8 @@ def train_replicate_tl_agent(
 
 
 def simulate_model(
-    model: TQC,
-    demo_env: TLBlockedFetchPushEnv,
+    model: PPO,
+    demo_env: CustomBuilder,
     animation_save_path: str | None = None,
 ):
     obs, _ = demo_env.reset()

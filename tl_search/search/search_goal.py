@@ -6,7 +6,7 @@ from typing import Any, Literal, overload
 import numpy as np
 from numpy.typing import NDArray
 import torch
-from sb3_contrib import TQC
+from stable_baselines3 import PPO
 
 from tl_search.common.io import spec2title
 from tl_search.common.typing import (
@@ -59,8 +59,6 @@ def search_train_evaluate(
     target_trap_masks: list[NDArray],
     obs_list: list[dict[str, Any]],
     data_save_path: str,
-    obs_props: list[ObsProp],
-    atom_pred_dict: dict[str, str],
     algo_kwargs: dict[str, Any],
     env_config: dict[str, Any] | None = None,
     search_start_iter: int = 0,
@@ -167,8 +165,6 @@ def search_train_evaluate(
             obs_list,
             data_save_path,
             neighbor_specs,
-            obs_props,
-            atom_pred_dict,
             algo_kwargs,
             env_config,
             warm_start_path,
@@ -240,8 +236,6 @@ def search_train_evaluate(
                     obs_list,
                     data_save_path,
                     additional_neighbor_specs,
-                    obs_props,
-                    atom_pred_dict,
                     algo_kwargs,
                     env_config,
                     warm_start_path,
@@ -437,8 +431,6 @@ def train_evaluate_multiprocess(
     obs_list: list[dict[str, Any]],
     data_save_path: str,
     tl_specs: list[str],
-    obs_props: list[ObsProp],
-    atom_pred_dict: dict[str, str],
     algo_kwargs: dict[str, Any],
     env_config: dict[str, Any] | None = None,
     warm_start_path: str | None = None,
@@ -460,8 +452,6 @@ def train_evaluate_multiprocess(
             obs_list,
             data_save_path,
             tl_spec,
-            obs_props,
-            atom_pred_dict,
             algo_kwargs,
             env_config,
             warm_start_path,
@@ -503,8 +493,6 @@ def train_evaluate(
     obs_list: list[dict[str, Any]],
     data_save_path: str,
     tl_spec: str,
-    obs_props: list[ObsProp],
-    atom_pred_dict: dict[str, str],
     algo_kwargs: dict[str, Any],
     env_config: dict[str, Any] | None = None,
     warm_start_path: str | None = None,
@@ -518,7 +506,7 @@ def train_evaluate(
     seeds_tmp: list[int] = [random.randint(0, 10000) for _ in range(num_replicates)]
 
     try:
-        spec_models: list[TQC] = train_replicate_tl_agent(
+        spec_models: list[PPO] = train_replicate_tl_agent(
             num_replicates,
             env,
             seeds_tmp,
@@ -565,19 +553,19 @@ def train_evaluate(
 
 
 def evaluate_models(
-    env: TLBlockedFetchPushEnv,
+    env: CustomBuilder,
     device: torch.device | str,
     target_gaus_means_list: list[NDArray[np.float64]],
     target_gaus_stds_list: list[NDArray[np.float64]],
     target_trap_masks: list[NDArray],
-    spec_models: list[TQC],
+    spec_models: list[PPO],
     obs_list: list[dict[str, Any]],
     data_save_path: str,
     num_episodes: int = 100,
     kl_div_suffix: str | None = None,
     kl_div_weighted: bool = True,
 ) -> tuple[KLDivReportDict, float, float]:
-    print(f"Evaluating models for {env._tl_spec}...")
+    print(f"Evaluating models for {env.task.tl_spec}...")
 
     kl_div_save_path: str = data_save_path.replace(
         ".json",
@@ -596,7 +584,7 @@ def evaluate_models(
     reward_mean: float
 
     if os.path.exists(reward_save_path) and os.path.exists(episode_length_save_path):
-        print(f"Loading saved reward and episode length for {env._tl_spec}...")
+        print(f"Loading saved reward and episode length for {env.task.tl_spec}...")
         with open(reward_save_path, "r") as f:
             reward_report: RewardReportDict = json.load(f)
         reward_mean = reward_report["mean"]
@@ -608,7 +596,7 @@ def evaluate_models(
         model_rewards: list[float] = []
         episode_lengths: list[int] = []
 
-        print(f"Evaluating rewards and episode lengths for {env._tl_spec}...")
+        print(f"Evaluating rewards and episode lengths for {env.task.tl_spec}...")
 
         for i, model in enumerate(spec_models):
             rewards: list[float]
@@ -623,7 +611,7 @@ def evaluate_models(
         reward_std: float = float(np.std(model_rewards))
         reward_report: RewardReportDict = {"mean": reward_mean, "std": reward_std}
 
-        print(f"Saved reward and episode length for {env._tl_spec}...")
+        print(f"Saved reward and episode length for {env.task.tl_spec}...")
         print(f"- path: {reward_save_path}")
         os.makedirs(os.path.dirname(reward_save_path), exist_ok=True)
         with open(reward_save_path, "w") as f:
@@ -631,7 +619,7 @@ def evaluate_models(
 
         episode_length_report = get_episode_length_report(episode_lengths)
 
-        print(f"Saved episode length for {env._tl_spec}...")
+        print(f"Saved episode length for {env.task.tl_spec}...")
         print(f"- path: {episode_length_save_path}")
         os.makedirs(os.path.dirname(episode_length_save_path), exist_ok=True)
         with open(episode_length_save_path, "w") as f:
@@ -640,7 +628,7 @@ def evaluate_models(
     mean_episode_length = episode_length_report["mean"]
 
     if os.path.exists(kl_div_save_path) and os.path.exists(entropy_save_path):
-        print(f"Loading saved reward and KL div for {env._tl_spec}...")
+        print(f"Loading saved reward and KL div for {env.task.tl_spec}...")
         with open(kl_div_save_path, "r") as f:
             kl_div_report = json.load(f)
 
@@ -651,7 +639,7 @@ def evaluate_models(
 
         for i, model in enumerate(spec_models):
             print(
-                f"Getting action distributions for {env._tl_spec} for rep {i + 1}/{len(spec_models)}..."
+                f"Getting action distributions for {env.task.tl_spec} for rep {i + 1}/{len(spec_models)}..."
             )
 
             rep_gaus_means, rep_gaus_stds, rep_trap_mask = get_action_distributions(
@@ -679,7 +667,7 @@ def evaluate_models(
 
         model_kl_divs: list[NDArray] = []
 
-        print(f"Getting KL divergences for {env._tl_spec}...")
+        print(f"Getting KL divergences for {env.task.tl_spec}...")
 
         max_kl_div: float = gaussian_dist_entropy(10)
 
@@ -687,7 +675,7 @@ def evaluate_models(
         target_idx = 0
         spec_idx = max_entropy_idx
 
-        print(f"Calculating KL divergence for {env._tl_spec}...")
+        print(f"Calculating KL divergence for {env.task.tl_spec}...")
         trap_mask: NDArray = target_trap_masks[target_idx] * rep_trap_masks[spec_idx]
         target_gaus_means_filtered: NDArray = target_gaus_means_list[target_idx][
             trap_mask == 1
@@ -700,7 +688,7 @@ def evaluate_models(
         ]
         spec_gaus_stds_filtered: NDArray = rep_gaus_stds_list[spec_idx][trap_mask == 1]
 
-        print(f"Calculating entropy for {env._tl_spec}...")
+        print(f"Calculating entropy for {env.task.tl_spec}...")
         raw_kl_div: NDArray[np.float64] = np.mean(
             gaussian_kl_div(
                 target_gaus_means_filtered,
@@ -721,7 +709,7 @@ def evaluate_models(
             print("Calculating unweighted KL divergence...")
             weight: NDArray = np.ones_like(raw_kl_div)
 
-        print(f"Calculating weighted KL divergence for {env._tl_spec}...")
+        print(f"Calculating weighted KL divergence for {env.task.tl_spec}...")
         kl_divs: NDArray = raw_kl_div * weight
 
         model_kl_divs.append(kl_divs.flatten())
@@ -741,7 +729,7 @@ def evaluate_models(
             else collect_kl_div_stats(model_kl_divs_concat, in_dict=True)
         )
 
-        print(f"Saved KL divergence for {env._tl_spec}...")
+        print(f"Saved KL divergence for {env.task.tl_spec}...")
         os.makedirs(os.path.dirname(kl_div_save_path), exist_ok=True)
         with open(kl_div_save_path, "w") as f:
             json.dump(kl_div_report, f, indent=4)
@@ -750,11 +738,11 @@ def evaluate_models(
 
 
 def get_action_distributions(
-    model: TQC,
-    env: TLBlockedFetchPushEnv,
+    model: PPO,
+    env: CustomBuilder,
     obs_list: list[dict[str, Any]],
 ) -> tuple[NDArray, NDArray, NDArray]:
-    aut = env.aut
+    aut = env.task.aut
     gaus_means: list[NDArray] = []
     gaus_stds: list[NDArray] = []
     trap_mask: list[int] = []
@@ -874,7 +862,7 @@ def return_input(x: Any) -> Any:
 
 
 def evaluate_policy(
-    model: TQC, env: CustomBuilder, num_eval_episodes: int
+    model: PPO, env: CustomBuilder, num_eval_episodes: int
 ) -> tuple[list[float], list[int]]:
     episode_rewards: list[float] = []
     episode_lengths: list[int] = []
@@ -961,7 +949,7 @@ def train_exh(
     warm_start_suffix: str = "_ws" if warm_start_path is not None else ""
 
     # try:
-    spec_models: list[TQC] = train_replicate_tl_agent(
+    spec_models: list[PPO] = train_replicate_tl_agent(
         num_replicates,
         env,
         seeds,
