@@ -9,12 +9,12 @@ from tl_search.search.neighbor import create_all_nodes, nodes2specs
 
 if __name__ == "__main__":
     warm_start: bool = False
-    gpu: int = 3
+    gpu: int = 1
     num_process: int = 24
 
     n_envs: Final[int] = 25  # 50  # 20
     total_timesteps: Final[int] = 600_000
-    num_replicates: Final[int] = 1
+    num_replicates: Final[list["str"]] = ["1"]
     window: Final[int] = ceil(round(total_timesteps / 100))
     continue_from_checkpoint: Final[bool] = False
 

@@ -151,7 +151,7 @@ def train_tl_agent(
 
 
 def train_replicate_tl_agent(
-    num_replicates: int,
+    num_replicates: list[str],
     env: CustomBuilder,
     seeds: list[int],
     total_time_steps: int,
@@ -170,31 +170,31 @@ def train_replicate_tl_agent(
 
     models: list[PPO] = []
 
-    for i in range(num_replicates):
-        print(f"Replicate {i + 1}/{num_replicates}")
-        print(f"Model path: {model_save_path.replace('.zip', f'_{i}.zip')}")
+    for rep_num in num_replicates:
+        print(f"Replicate {rep_num}/{num_replicates}")
+        print(f"Model path: {model_save_path.replace('.zip', f'_{rep_num}.zip')}")
         if (
-            os.path.exists(model_save_path.replace(".zip", f"_{i}.zip"))
+            os.path.exists(model_save_path.replace(".zip", f"_{rep_num}.zip"))
             and not force_training
         ):
             print("Model already exists, skipping training")
             model = PPO.load(
-                model_save_path.replace(".zip", f"_{i}.zip"), env, device=device
+                model_save_path.replace(".zip", f"_{rep_num}.zip"), env, device=device
             )
 
         else:
             model, lc = train_tl_agent(
                 env,
-                seeds[i],
+                seeds[int(rep_num)],
                 total_time_steps,
-                model_save_path.replace(".zip", f"_{i}.zip"),
-                learning_curve_path.replace(".png", f"_{i}.png"),
+                model_save_path.replace(".zip", f"_{rep_num}.zip"),
+                learning_curve_path.replace(".png", f"_{rep_num}.png"),
                 device,
                 algo_kwargs,
                 window,
-                i,
+                int(rep_num),
                 (
-                    warm_start_path.replace(".zip", f"_{i}.zip")
+                    warm_start_path.replace(".zip", f"_{rep_num}.zip")
                     if warm_start_path
                     else None
                 ),
@@ -204,7 +204,7 @@ def train_replicate_tl_agent(
                 simulate_model(
                     model,
                     env,
-                    animation_save_path.replace(".gif", f"_{i}.gif"),
+                    animation_save_path.replace(".gif", f"_{rep_num}.gif"),
                 )
             else:
                 pass

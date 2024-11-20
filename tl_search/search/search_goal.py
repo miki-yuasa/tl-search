@@ -890,7 +890,7 @@ def evaluate_policy(
 def train_exh_mp(
     gpu: int,
     num_process: int,
-    num_replicates: int,
+    num_replicates: list[str],
     n_envs: int,
     seeds: list[int],
     total_time_steps: int,
@@ -931,7 +931,7 @@ def train_exh_mp(
 
 
 def train_exh(
-    num_replicates: int,
+    num_replicates: list[str],
     seeds: list[int],
     total_time_steps: int,
     model_save_path: str,
