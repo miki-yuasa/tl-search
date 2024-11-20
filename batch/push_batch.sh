@@ -12,7 +12,7 @@
 # Load the necessary modules
 cd /projects/illinois/eng/aerospace/huytran1/myuasa2/git/tl-search
 module load anaconda/2023-Mar/3
-conda install -c conda-forge spot=2.11.6
+conda install -c conda-forge spot=2.11.6 -y
 source /projects/illinois/eng/aerospace/huytran1/myuasa2/.cache/pypoetry/virtualenvs/tl-search-WyzSwqE--py3.10/bin/activate
 
 # Run the serial executable
