@@ -20,11 +20,13 @@ class CustomBuilder(Builder):
         height: int = 256,
         camera_id: int | None = None,
         camera_name: str | None = None,
+        ignore_cost: bool = False,
     ) -> None:
         super().__init__(
             task_id, config, render_mode, width, height, camera_id, camera_name
         )
-        self.max_episode_steps = max_episode_steps
+        self.max_episode_steps: int = max_episode_steps
+        self.ignore_cost: bool = ignore_cost
 
     def _get_task(self) -> BaseTask:
         class_name = get_task_class_name(self.task_id)
@@ -87,4 +89,10 @@ class CustomBuilder(Builder):
 
         if self.render_parameters.mode == "human":
             self.render()
-        return self.task.obs(), reward - cost, self.terminated, self.truncated, info
+
+        if not self.ignore_cost:
+            reward -= cost
+        else:
+            pass
+
+        return self.task.obs(), reward, self.terminated, self.truncated, info

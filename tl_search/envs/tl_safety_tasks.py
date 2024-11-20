@@ -11,18 +11,19 @@ from tl_search.tl.tl_parser import tl2rob
 
 class TLGoalLevel1(GoalLevel1):
     def __init__(self, config) -> None:
+        self.tl_spec: str = ""
         super().__init__(config)
 
         obs_props: list[ObsProp] = [
-            ObsProp("d_goal", ["d_goal"], lambda d_goal: d_goal),
-            ObsProp("d_haz", ["d_haz"], lambda d_haz: d_haz),
-            ObsProp("d_vase", ["d_vase"], lambda d_vase: d_vase),
+            ObsProp("d_gl", ["d_gl"], lambda d_goal: d_goal),
+            ObsProp("d_hz", ["d_hz"], lambda d_haz: d_haz),
+            ObsProp("d_vs", ["d_vs"], lambda d_vase: d_vase),
         ]
 
         atom_pred_dict: dict[str, str] = {
-            "psi_goal": f"d_goal < 0.3",
-            "psi_haz": f"d_haz < 0.2",
-            "psi_vase": f"d_vase < 0.1",
+            "psi_gl": f"d_gl < 0.3",
+            "psi_hz": f"d_hz < 0.2",
+            "psi_vs": f"d_vs < 0.1",
         }
 
         self.aut = TLAutomaton(self.tl_spec, atom_pred_dict, obs_props)
@@ -34,21 +35,20 @@ class TLGoalLevel1(GoalLevel1):
 
     def calculate_reward(self):
         """Determine reward depending on the agent and tasks."""
-        reward = 0.0
         d_goal = self.dist_goal()
         d_haz_all: list[float] = [
-            self.agent.dist_xy(pos) for pos in self._geoms["hazards"].pos()
+            self.agent.dist_xy(pos) for pos in self._geoms["hazards"].pos
         ]
         d_haz: float = min(d_haz_all)
         d_vase_all: list[float] = [
-            self.agent.dist_xy(pos) for pos in self._free_geoms["vases"].pos()
+            self.agent.dist_xy(pos) for pos in self._free_geoms["vases"].pos
         ]
         d_vase: float = min(d_vase_all)
 
         kin_dict: dict[str, float] = {
-            "d_goal": d_goal,
-            "d_haz": d_haz,
-            "d_vase": d_vase,
+            "d_gl": d_goal,
+            "d_hz": d_haz,
+            "d_vs": d_vase,
         }
 
         atom_rob_dict, obs_dict = atom_tl_ob2rob(self.aut, kin_dict)
@@ -60,14 +60,18 @@ class TLGoalLevel1(GoalLevel1):
         self._aut_state_traj.append(next_aut_state)
         if next_aut_state in self.aut.goal_states:
             self._status = "goal"
-            self.goal_achieved = True
         elif next_aut_state in self.aut.trap_states:
             self._status = "trap"
-            self.goal_achieved = True
         else:
             self._status = "intermediate"
 
         return reward
+
+    @property
+    def goal_achieved(self):
+        """Whether the goal of task is achieved."""
+        # pylint: disable-next=no-member
+        return self.dist_goal() <= self.goal.size or self._status in ["goal", "trap"]
 
 
 def atom_tl_ob2rob(
