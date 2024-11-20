@@ -1,14 +1,13 @@
 #!/bin/bash
 #SBATCH --time=3-00:00:00                  # Job run time (hh:mm:ss)
-#SBATCH --account=myuasa2           # Replace "account_name" with an account available to you
 #SBATCH --nodes=1                        # Number of nodes
+#SBATCH --account=huytran1-ic
 #SBATCH --ntasks-per-node=24              # Number of task (cores/ppn) per node
-#SBATCH --mem-per-cpu=515500               # Memory per core (value in MBs)
 #SBATCH --job-name=tl_search_exh_push          # Job name
 #SBATCH --output=tl_search_exh_push_%j.out   # Output file name
 #SBATCH --error=tl_search_exh_push_%j.err    # Error file name
-#SBATCH --gres=gpu:A100:1                      # Number of GPUs
 #SBATCH --partition=IllinoisComputes-GPU
+#SBATCH --gres=gpu:A100:1
 
 # Load the necessary modules
 cd /projects/illinois/eng/aerospace/huytran1/myuasa2/git/tl-search
