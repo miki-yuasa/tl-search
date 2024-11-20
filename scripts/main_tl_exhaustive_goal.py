@@ -9,15 +9,16 @@ from tl_search.search.neighbor import create_all_nodes, nodes2specs
 
 if __name__ == "__main__":
     warm_start: bool = False
-    gpu: int = 0
+    gpu: int = 3
     num_process: int = 24
 
     n_envs: Final[int] = 25  # 50  # 20
-    total_timesteps: Final[int] = 1_000_000
+    total_timesteps: Final[int] = 600_000
     num_replicates: Final[int] = 1
     window: Final[int] = ceil(round(total_timesteps / 100))
+    continue_from_checkpoint: Final[bool] = False
 
-    gpus: tuple[int, ...] = (0, 1, 2, 3)
+    gpus: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6, 7)
 
     predicates: tuple[str, ...] = (
         "psi_gl",
@@ -58,20 +59,9 @@ if __name__ == "__main__":
     tb_log_dir: str = f"out/logs/goal_search/exh_ppo_{gpu}/"
 
     ppo_config: dict[str, Any] = {
-        "policy": "MultiInputPolicy",
-        "buffer_size": int(1e6),
-        "batch_size": 2048,
-        "gamma": 0.95,
-        "learning_rate": 0.001,
-        "tau": 0.05,
+        "policy": "MlpPolicy",
         "tensorboard_log": tb_log_dir,
         "policy_kwargs": policy_kwargs,
-    }
-
-    her_kwargs = {
-        "n_sampled_goal": 4,
-        "goal_selection_strategy": "future",
-        "copy_info_dict": True,
     }
 
     seeds: list[int] = [random.randint(0, 10000) for _ in range(num_replicates)]
@@ -102,10 +92,9 @@ if __name__ == "__main__":
         learning_curve_path,
         animation_save_path,
         ppo_config,
-        her_kwargs,
         window,
-        data_save_path,
         searching_specs,
         env_config,
         warm_start_path=None,
+        continue_from_checkpoint=continue_from_checkpoint,
     )
