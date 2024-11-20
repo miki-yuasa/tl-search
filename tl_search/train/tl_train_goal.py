@@ -81,9 +81,9 @@ def train_tl_agent(
         ckpt_files = [f for _, f in sorted(zip(timesteps, ckpt_files))]
         if len(ckpt_files) > 0:
             last_ckpt = ckpt_files[-1]
-            model_save_path = os.path.join(ckpt_dir, last_ckpt)
+            rl_model_path = os.path.join(ckpt_dir, last_ckpt)
             ckpt_step: int = int(last_ckpt.split("_")[-2])
-            print(f"Continuing from checkpoint: {model_save_path}")
+            print(f"Continuing from checkpoint: {rl_model_path}")
         else:
             print("No checkpoint found, training from scratch.")
             continue_from_checkpoint = False
@@ -91,9 +91,9 @@ def train_tl_agent(
     training_env = copy.deepcopy(env)
     print("Training policy")
     if continue_from_checkpoint:
-        print(f"Loading model from the last checkpoint {model_save_path}")
+        print(f"Loading model from the last checkpoint {rl_model_path}")
         total_timesteps = total_timesteps - ckpt_step
-        model = PPO.load(model_save_path, env=training_env, device=device)
+        model = PPO.load(rl_model_path, env=training_env, device=device)
     else:
         model = PPO(
             env=training_env,
@@ -102,9 +102,7 @@ def train_tl_agent(
             **algo_kwargs,
         )
 
-    tb_log_name: str = f"ppo{spec2title(env.task.tl_spec)}" + (
-        "" if rep_idx is None else f"_{rep_idx}"
-    )
+    tb_log_name: str = rl_model_path.split("/")[-1].replace(".zip", "")
 
     checkpoint_callback = CheckpointCallback(
         save_freq=100_000,
@@ -112,30 +110,47 @@ def train_tl_agent(
         name_prefix=rl_model_path.split("/")[-1].replace(".zip", ""),
     )
 
-    try:
-        model.learn(
-            total_timesteps,
-            tb_log_name=tb_log_name,
-            callback=checkpoint_callback,
-            reset_num_timesteps=not continue_from_checkpoint,
-        )
-    except:
-        if continue_from_checkpoint:
-            print(f"Loading model from the last checkpoint {model_save_path}")
-            model = PPO.load(model_save_path, env=training_env, device=device)
-        else:
-            model = PPO(
-                env=training_env,
-                verbose=1,
-                device=device,
-                **algo_kwargs,
-            )
+    # Check if the env can continue more than one step
+    count_env = copy.deepcopy(env)
+    count_env.reset()
+    step_count: int = 0
+    while True:
+        step_count += 1
+        _, _, terminated, truncated, _ = count_env.step(count_env.action_space.sample())
+        if terminated or truncated:
+            break
+
+    if step_count > 1:
         try:
             model.learn(
-                total_timesteps, tb_log_name=tb_log_name, callback=checkpoint_callback
+                total_timesteps,
+                tb_log_name=tb_log_name,
+                callback=checkpoint_callback,
+                reset_num_timesteps=not continue_from_checkpoint,
             )
         except:
-            raise Exception("Failed to train model")
+            if continue_from_checkpoint:
+                print(f"Loading model from the last checkpoint {rl_model_path}")
+                model = PPO.load(rl_model_path, env=training_env, device=device)
+            else:
+                model = PPO(
+                    env=training_env,
+                    verbose=1,
+                    device=device,
+                    **algo_kwargs,
+                )
+            try:
+                model.learn(
+                    total_timesteps,
+                    tb_log_name=tb_log_name,
+                    callback=checkpoint_callback,
+                )
+            except:
+                raise Exception("Failed to train model")
+    else:
+        print(
+            f"Skipping training for {env.task.tl_spec}, the environment can't continue more than one step"
+        )
 
     model.save(rl_model_path)
     try:
