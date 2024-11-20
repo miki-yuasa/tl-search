@@ -6,6 +6,7 @@ from safety_gymnasium.bases.base_task import BaseTask
 from safety_gymnasium.builder import Builder, RenderConf
 from safety_gymnasium.utils.task_utils import get_task_class_name
 from safety_gymnasium import tasks
+from safety_gymnasium.utils.common_utils import quat2zalign
 
 from tl_search.envs import tl_safety_tasks
 
@@ -131,3 +132,28 @@ class CustomBuilder(Builder):
 
     def _is_success(self) -> bool:
         return self.task.dist_goal() <= self.task.goal.size
+
+    def _reward(self) -> float:
+        """Calculate the current rewards.
+
+        Call exactly once per step.
+        """
+        reward = self.task.calculate_reward()
+
+        # Intrinsic reward for uprightness
+        if self.task.reward_conf.reward_orientation:
+            zalign = quat2zalign(
+                self.task.data.get_body_xquat(
+                    self.task.reward_conf.reward_orientation_body
+                ),
+            )
+            reward += self.task.reward_conf.reward_orientation_scale * zalign
+
+        # Clip reward
+        reward_clip = self.task.reward_conf.reward_clip
+        if reward_clip:
+            in_range = -reward_clip < reward < reward_clip
+            if not in_range:
+                reward = np.clip(reward, -reward_clip, reward_clip)
+
+        return reward
