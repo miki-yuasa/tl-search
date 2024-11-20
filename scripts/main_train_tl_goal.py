@@ -14,16 +14,19 @@ from tl_search.envs.tl_safety_builder import CustomBuilder
 
 tl_spec: str = "F(psi_gl) & G(!psi_hz & !psi_vs)"
 gpu_id: int = 0
-total_timesteps: int = 500_000
+total_timesteps: int = 1_000_000
 task_name: str = "SafetyCarTLGoal1-v0"
+
+continue_from_checkpoint: bool = True
 
 tl_title: str = spec2title(tl_spec)
 replicate: str = "0"
-file_title: str = f"goal_ppo_{total_timesteps/1_000}M_timesteps"
+file_title: str = f"goal_ppo_{tl_title}_{replicate}"
 common_dir_path: str = "search/goal"
 model_save_path: str = f"out/models/{common_dir_path}/{file_title}.zip"
-animation_save_path: str = f"out/plots/{common_dir_path}/{file_title}.gif"
+animation_save_path: str = f"out/plots/animations/{common_dir_path}/{file_title}.gif"
 tb_log_path: str = "out/logs/tl_goal"
+ckpt_dir: str = "out/models/search/goal/ckpts"
 
 net_arch = [256, 256]
 
@@ -44,29 +47,57 @@ env_config: dict[str, Any] = {
 
 env = CustomBuilder(**env_config)
 
-if not os.path.exists(model_save_path + ".zip"):
-    model = PPO(
-        "MlpPolicy",
-        env,
-        verbose=1,
-        tensorboard_log=tb_log_path,
-        device=device,
-        policy_kwargs=dict(net_arch=net_arch),
-    )
+if continue_from_checkpoint:
+    ckpt_files = os.listdir(ckpt_dir)
+    ckpt_files = [
+        f for f in ckpt_files if f.startswith(file_title) and f.endswith(".zip")
+    ]
+    timesteps: list[float] = [int(f.split("_")[-2]) for f in ckpt_files]
+    ckpt_files = [f for _, f in sorted(zip(timesteps, ckpt_files))]
+    if len(ckpt_files) > 0:
+        last_ckpt = ckpt_files[-1]
+        model_save_path = os.path.join(ckpt_dir, last_ckpt)
+        ckpt_step: int = int(last_ckpt.split("_")[-2])
+        print(f"Continuing from checkpoint: {model_save_path}")
+    else:
+        print("No checkpoint found, training from scratch.")
+
+if os.path.exists(model_save_path) and not continue_from_checkpoint:
+    print(f"Loading the saved model")
+    model = PPO.load(model_save_path, device=device)
+
+else:
+    if continue_from_checkpoint:
+        print(f"Loading model from the last checkpoint {model_save_path}")
+        total_timesteps = total_timesteps - ckpt_step
+        model = PPO.load(model_save_path, env=env, device=device)
+    else:
+        model = PPO(
+            "MlpPolicy",
+            env,
+            verbose=1,
+            tensorboard_log=tb_log_path,
+            device=device,
+            policy_kwargs=dict(net_arch=net_arch),
+        )
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=100_000,
-        save_path="out/models/goal/ckpts",
+        save_freq=500_000,
+        save_path=ckpt_dir,
         name_prefix=model_save_path.split("/")[-1],
     )
 
-    model.learn(total_timesteps=total_timesteps)
+    model.learn(
+        total_timesteps=total_timesteps,
+        tb_log_name=file_title,
+        callback=checkpoint_callback,
+        reset_num_timesteps=not continue_from_checkpoint,
+    )
 
     model.save(model_save_path)
 
     env.close()
-else:
-    model = PPO.load(model_save_path, device=device)
+
 
 demo_env = CustomBuilder(**env_config)
 

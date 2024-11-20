@@ -95,4 +95,13 @@ class CustomBuilder(Builder):
         else:
             pass
 
+        info.update(
+            {
+                "is_success": self._is_success(),
+            }
+        )
+
         return self.task.obs(), reward, self.terminated, self.truncated, info
+
+    def _is_success(self) -> bool:
+        return self.task.dist_goal() <= self.task.goal.size
