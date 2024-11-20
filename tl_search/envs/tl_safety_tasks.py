@@ -60,8 +60,10 @@ class TLGoalLevel1(GoalLevel1):
         self._aut_state_traj.append(next_aut_state)
         if next_aut_state in self.aut.goal_states:
             self._status = "goal"
+            self.goal_achieved = True
         elif next_aut_state in self.aut.trap_states:
             self._status = "trap"
+            self.goal_achieved = True
         else:
             self._status = "intermediate"
 
