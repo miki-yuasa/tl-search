@@ -1,8 +1,9 @@
 import numpy as np
 from numpy.typing import NDArray
 
+import gymnasium
 from safety_gymnasium.bases.base_task import BaseTask
-from safety_gymnasium.builder import Builder
+from safety_gymnasium.builder import Builder, RenderConf
 from safety_gymnasium.utils.task_utils import get_task_class_name
 from safety_gymnasium import tasks
 
@@ -22,9 +23,34 @@ class CustomBuilder(Builder):
         camera_name: str | None = None,
         ignore_cost: bool = False,
     ) -> None:
-        super().__init__(
-            task_id, config, render_mode, width, height, camera_id, camera_name
+        gymnasium.utils.EzPickle.__init__(
+            self,
+            config=config,
+            task_id=task_id,
+            max_episode_steps=max_episode_steps,
+            render_mode=render_mode,
+            width=width,
+            height=height,
+            camera_id=camera_id,
+            camera_name=camera_name,
+            ignore_cost=ignore_cost,
         )
+
+        self.task_id: str = task_id
+        self.config: dict = config
+        self._seed: int = None
+        self._setup_simulation()
+
+        self.first_reset: bool = None
+        self.steps: int = None
+        self.cost: float = None
+        self.terminated: bool = True
+        self.truncated: bool = False
+
+        self.render_parameters = RenderConf(
+            render_mode, width, height, camera_id, camera_name
+        )
+
         self.max_episode_steps: int = max_episode_steps
         self.ignore_cost: bool = ignore_cost
 
