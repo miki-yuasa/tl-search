@@ -13,7 +13,7 @@ from tl_search.envs.tl_safety_builder import CustomBuilder
 
 
 tl_spec: str = "F(psi_gl) & G(!psi_hz & !psi_vs)"
-gpu_id: int = 0
+gpu_id: int = 1
 total_timesteps: int = 1_000_000
 task_name: str = "SafetyCarTLGoal1-v0"
 
@@ -43,6 +43,7 @@ env_config: dict[str, Any] = {
     "width": 512,
     "height": 512,
     "camera_name": "fixedfar",
+    "ignore_cost": True,
 }
 
 env = CustomBuilder(**env_config)
