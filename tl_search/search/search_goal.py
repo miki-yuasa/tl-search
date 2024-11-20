@@ -902,11 +902,11 @@ def train_exh_mp(
     tl_specs: list[str],
     env_config: dict[str, Any] = {},
     warm_start_path: str | None = None,
+    continue_from_checkpoint: bool = False,
 ) -> None:
     input = [
         (
             num_replicates,
-            n_envs,
             seeds,
             total_time_steps,
             model_save_path,
@@ -918,6 +918,7 @@ def train_exh_mp(
             tl_spec,
             env_config,
             warm_start_path,
+            continue_from_checkpoint,
         )
         for tl_spec in tl_specs
     ]
@@ -942,6 +943,7 @@ def train_exh(
     tl_spec: str,
     env_config: dict[str, Any] = {},
     warm_start_path: str | None = None,
+    continue_from_checkpoint: bool = False,
 ) -> None:
     env_config["config"]["tl_spec"] = tl_spec
     env = CustomBuilder(**env_config)
@@ -971,6 +973,7 @@ def train_exh(
         algo_kwargs,
         window,
         warm_start_path,
+        continue_from_checkpoint=continue_from_checkpoint,
     )
 
     # except:
