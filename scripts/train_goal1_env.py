@@ -17,7 +17,9 @@ env_type: Literal["vanilla", "terminal"] = "terminal"
 gpu_id: int = 0
 total_timesteps: int = 1_000_000
 
-file_name: str = "safety_car_goal1_ppo_512_0"
+net_arch = [128, 128]
+
+file_name: str = f"safety_car_goal1_ppo_{net_arch[0]}_0"
 model_save_path: str = f"out/models/safety_car_goal1/{file_name}.zip"
 animation_save_path: str = f"out/plots/animations/safety_car_goal1/{file_name}.gif"
 tb_log_path: str = "out/logs/safety_car_goal1/"
@@ -31,8 +33,6 @@ env_config: dict[str, Any] = {
     "height": 512,
     "camera_name": "fixedfar",
 }
-
-net_arch = [5112, 512]
 
 device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
 
