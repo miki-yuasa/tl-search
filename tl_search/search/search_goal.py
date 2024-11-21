@@ -775,7 +775,7 @@ def get_action_distributions(
             trap_mask.append(0 if find_trap_transitions(atom_rob_dict, aut) else 1)
         else:
             # If no automaton is provided, assume all states are non-trap states
-            trap_mask.append(0)
+            trap_mask.append(1)
 
     env.close()
 
