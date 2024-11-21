@@ -37,6 +37,8 @@ if __name__ == "__main__":
     num_max_search_steps: int = 10
     num_processes: int = 15
 
+    suboptimal_ckpt_timestep: int | None = None
+
     warm_start_mode: Literal["target", "parent", None] = None
     continue_from_checkpoint: bool = True
     reward_threshold: float = -4
@@ -334,6 +336,7 @@ if __name__ == "__main__":
             max_extended_steps=max_extended_steps,
             expand_search=expand_search,
             continue_from_checkpoint=continue_from_checkpoint,
+            suboptimal_ckpt_timestep=suboptimal_ckpt_timestep,
         )
         local_optimum_nodes.append(node_trace[-1])
         local_optimum_specs.append(spec_trace[-1])

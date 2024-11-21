@@ -193,6 +193,7 @@ def train_replicate_tl_agent(
     force_training: bool = False,
     no_returns: bool = False,
     continue_from_checkpoint: bool = False,
+    suboptimal_ckpt_timestep: int | None = None,
 ) -> list[PPO]:
     lcs: list[tuple[NDArray, NDArray]] = []
 
@@ -201,8 +202,19 @@ def train_replicate_tl_agent(
     for rep_num in num_replicates:
         print(f"Replicate {rep_num} from {num_replicates}")
         print(f"Model path: {model_save_path.replace('.zip', f'_{rep_num}.zip')}")
-        if (
-            os.path.exists(model_save_path.replace(".zip", f"_{rep_num}.zip"))
+        if suboptimal_ckpt_timestep is not None:
+            print(
+                f"Suboptimal checkpoint timestep: {suboptimal_ckpt_timestep} for {rep_num}"
+            )
+            suboptimal_model_dir: str = os.path.dirname(model_save_path) + "/ckpts"
+            suboptimal_model_path: str = os.path.join(
+                suboptimal_model_dir,
+                f"{model_save_path.split('/')[-1].replace('.zip', '')}_{rep_num}_{suboptimal_ckpt_timestep}_steps.zip",
+            )
+            model = PPO.load(suboptimal_model_path, env, device=device)
+        elif (
+            suboptimal_ckpt_timestep is None
+            and os.path.exists(model_save_path.replace(".zip", f"_{rep_num}.zip"))
             and not force_training
         ):
             print("Model already exists, skipping training")

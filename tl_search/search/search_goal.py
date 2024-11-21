@@ -73,6 +73,7 @@ def search_train_evaluate(
     max_extended_steps: int = 3,
     expand_search: bool = True,
     continue_from_checkpoint: bool = False,
+    suboptimal_ckpt_timestep: int | None = None,
 ) -> tuple[list[SpecNode], list[str], list[float], list[str]]:
     print("Searching for a spec. Start index: ", start_idx)
     print("Initial spec: ", node2spec(init_node))
