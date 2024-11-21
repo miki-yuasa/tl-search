@@ -39,23 +39,27 @@ if __name__ == "__main__":
 
     warm_start_mode: Literal["target", "parent", None] = None
     continue_from_checkpoint: bool = True
-    reward_threshold: float = -5
+    reward_threshold: float = -4
     episode_length_sigma: float | None = 2 if warm_start_mode == "target" else None
-    kl_div_suffix: str | None = "goal_exp1_tl"
+    kl_div_suffix: str | None = "goal_exp2_nr"
     max_extended_steps: int = 3
     expand_search: bool = True
     kl_div_weighted: bool = False
 
-    target_spec: str | Literal["normal_reward"] = "F(psi_gl) & G(!psi_hz & !psi_vs)"
+    target_spec: str | Literal["normal_reward"] = (
+        "normal_reward"  # "F(psi_gl) & G(!psi_hz & !psi_vs)"
+    )
 
     start_iter: int = 0
     start_specs: list[str | None] = [
         "F(psi_gl)&G(!psi_hz|!psi_vs)",
-        None,
-        None,
-        None,
-        None,
-        None,
+        "F(psi_vs) & G(psi_gl|!psi_hz)",
+        "F(psi_gl|psi_hz) & G(psi_vs)",
+        "F(!psi_gl) & G(!psi_hz&psi_vs)",
+        "F(psi_vs) & G(!psi_gl&!psi_hz)",
+        "F(!psi_gl&!psi_hz) & G(psi_vs)",
+        "F(psi_gl) & G(!psi_hz&!psi_vs)",
+        "F(psi_gl&!psi_hz) & G(!psi_vs)",
         None,
         None,
     ]
@@ -67,7 +71,7 @@ if __name__ == "__main__":
     )
 
     n_envs: Final[int] = 25  # 50  # 20
-    total_timesteps: Final[int] = 2_000_000
+    total_timesteps: Final[int] = 600_000
     num_replicates: Final[list[str]] = ["0"]
     num_episodes: Final[int] = 200
     window: Final[int] = ceil(round(total_timesteps / 100))
@@ -197,7 +201,7 @@ if __name__ == "__main__":
         with open(obs_list_path, "rb") as f:
             obs_list = pickle.load(f)
     else:
-        model = PPO.load(target_model_path, sample_env)
+        model = PPO.load(target_model_path.replace(".zip", f"_{0}.zip"), sample_env)
         obs_list = sample_obs(sample_env, model, num_samples)
 
         # Save the observations
