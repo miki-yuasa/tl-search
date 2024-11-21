@@ -35,6 +35,7 @@ from tl_search.search.neighbor import (
     node2spec,
     nodes2specs,
 )
+from tl_search.tl.synthesis import TLAutomaton
 from tl_search.tl.transition import find_trap_transitions
 from tl_search.train.tl_train_goal import train_replicate_tl_agent
 
@@ -751,7 +752,7 @@ def get_action_distributions(
     env: CustomBuilder,
     obs_list: list[dict[str, Any]],
 ) -> tuple[NDArray, NDArray, NDArray]:
-    aut = env.task.aut
+    aut: TLAutomaton | None = env.task.aut if hasattr(env.task, "aut") else None
     gaus_means: list[NDArray] = []
     gaus_stds: list[NDArray] = []
     trap_mask: list[int] = []
@@ -768,9 +769,13 @@ def get_action_distributions(
         gaus_means.append(gaus_mean)
         gaus_stds.append(gaus_std)
 
-        kin_dict = obs2kin_dict(obs)
-        atom_rob_dict, _ = atom_tl_ob2rob(aut, kin_dict)
-        trap_mask.append(0 if find_trap_transitions(atom_rob_dict, aut) else 1)
+        if aut is not None:
+            kin_dict = obs2kin_dict(obs)
+            atom_rob_dict, _ = atom_tl_ob2rob(aut, kin_dict)
+            trap_mask.append(0 if find_trap_transitions(atom_rob_dict, aut) else 1)
+        else:
+            # If no automaton is provided, assume all states are non-trap states
+            trap_mask.append(0)
 
     env.close()
 
