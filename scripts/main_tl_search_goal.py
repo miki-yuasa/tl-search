@@ -30,15 +30,16 @@ from tl_search.evaluation.ranking import sort_spec
 from tl_search.search.neighbor import create_neighbor_masks, initialize_node, spec2node
 
 if __name__ == "__main__":
-    run: int = 1
-    gpu: int = 1  # (run - 1) % 4
+    run: int = 8
+    gpu: int = (run - 1) % 4
     num_samples: int = 5000
     num_start: int = 1
     num_max_search_steps: int = 10
     num_processes: int = 15
 
     warm_start_mode: Literal["target", "parent", None] = None
-    reward_threshold: float = 0.02
+    continue_from_checkpoint: bool = True
+    reward_threshold: float = -5
     episode_length_sigma: float | None = 2 if warm_start_mode == "target" else None
     kl_div_suffix: str | None = "goal_exp1_tl"
     max_extended_steps: int = 3
@@ -48,7 +49,16 @@ if __name__ == "__main__":
     target_spec: str | Literal["normal_reward"] = "F(psi_gl) & G(!psi_hz & !psi_vs)"
 
     start_iter: int = 0
-    start_specs: list[str | None] = [None, None, None, None, None, None, None, None]
+    start_specs: list[str | None] = [
+        "F(psi_gl)&G(!psi_hz|!psi_vs)",
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    ]
 
     predicates: tuple[str, ...] = (
         "psi_gl",
@@ -58,7 +68,7 @@ if __name__ == "__main__":
 
     n_envs: Final[int] = 25  # 50  # 20
     total_timesteps: Final[int] = 2_000_000
-    num_replicates: Final[int] = 1
+    num_replicates: Final[list[str]] = ["0"]
     num_episodes: Final[int] = 200
     window: Final[int] = ceil(round(total_timesteps / 100))
 
@@ -145,7 +155,7 @@ if __name__ == "__main__":
     animation_save_path: str | None = None
     data_save_path: str = f"out/data/{common_dir_path}/kl_div/ppo{suffix}.json"
     target_actions_path: str = (
-        f"out/data/{common_dir_path}/dataset/action_probs_ppo_{log_suffix}_full.npz"
+        f"out/data/{common_dir_path}/dataset/action_probs_ppo_{kl_div_suffix}_full.npz"
     )
     target_entropy_path: str = target_actions_path.replace(".npz", "_ent.json")
     obs_list_path: str = (
@@ -155,9 +165,7 @@ if __name__ == "__main__":
         f"out/data/{common_dir_path}/dataset/episode_ppo._{kl_div_suffix}.json"
     )
 
-    seeds: list[int] = [
-        random.randint(0, 10000) for _ in range(num_replicates)
-    ]  # not used
+    seeds: list[int] = [random.randint(0, 10000) for _ in num_replicates]  # not used
 
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
     torch.cuda.set_device(device)
@@ -168,10 +176,6 @@ if __name__ == "__main__":
         assert "tl" in kl_div_suffix
 
     mp.set_start_method("spawn")
-
-    idx_combs: list[tuple[int, int]] = list(
-        itertools.product(range(num_replicates), range(ref_num_replicates))
-    )
 
     init_nodes: list[SpecNode] = [
         initialize_node(predicates, exclusions) for _ in range(num_start)
@@ -218,7 +222,7 @@ if __name__ == "__main__":
         target_gaus_stds_list = []
         target_trap_masks = []
         print("Loading target model...")
-        for i in range(num_replicates):
+        for i in range(ref_num_replicates):
             print(f"Replicate {i}")
             model = PPO.load(target_model_path.replace(".zip", f"_{i}.zip"), target_env)
             action_probs: NDArray
@@ -325,6 +329,7 @@ if __name__ == "__main__":
             kl_div_suffix=kl_div_suffix,
             max_extended_steps=max_extended_steps,
             expand_search=expand_search,
+            continue_from_checkpoint=continue_from_checkpoint,
         )
         local_optimum_nodes.append(node_trace[-1])
         local_optimum_specs.append(spec_trace[-1])

@@ -66,6 +66,8 @@ def train_tl_agent(
 
     ckpt_dir: str = "out/models/search/goal/ckpts"
 
+    tb_log_name: str = rl_model_path.split("/")[-1].replace(".zip", "")
+
     if continue_from_checkpoint:
         print(
             f"Search a checkpoint in {ckpt_dir} for a file starting with {rl_model_path.split('/')[-1].replace('.zip', '')}"
@@ -80,10 +82,23 @@ def train_tl_agent(
         timesteps: list[float] = [int(f.split("_")[-2]) for f in ckpt_files]
         ckpt_files = [f for _, f in sorted(zip(timesteps, ckpt_files))]
         if len(ckpt_files) > 0:
-            last_ckpt = ckpt_files[-1]
-            rl_model_path = os.path.join(ckpt_dir, last_ckpt)
-            ckpt_step: int = int(last_ckpt.split("_")[-2])
-            print(f"Continuing from checkpoint: {rl_model_path}")
+            # Search the checkpoint under the total timesteps
+            ckpt_found: bool = False
+            for ckpt in ckpt_files:
+                if int(ckpt.split("_")[-2]) <= total_timesteps:
+                    last_ckpt = ckpt
+                    ckpt_found = True
+                else:
+                    break
+            if ckpt_found:
+                rl_model_path = os.path.join(ckpt_dir, last_ckpt)
+                ckpt_step: int = int(last_ckpt.split("_")[-2])
+                print(f"Continuing from checkpoint: {rl_model_path}")
+            else:
+                print(
+                    f"No checkpoint found under {total_timesteps}, training from scratch."
+                )
+                continue_from_checkpoint = False
         else:
             print("No checkpoint found, training from scratch.")
             continue_from_checkpoint = False
@@ -101,8 +116,6 @@ def train_tl_agent(
             device=device,
             **algo_kwargs,
         )
-
-    tb_log_name: str = rl_model_path.split("/")[-1].replace(".zip", "")
 
     checkpoint_callback = CheckpointCallback(
         save_freq=100_000,

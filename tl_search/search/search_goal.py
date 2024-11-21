@@ -47,7 +47,7 @@ def search_train_evaluate(
     neighbor_masks: tuple[ValueTable, ...],
     log_save_path: str,
     num_processes: int,
-    num_replicates: int,
+    num_replicates: list[str],
     seeds: list[int],
     total_timesteps: int,
     model_save_path: str,
@@ -71,6 +71,7 @@ def search_train_evaluate(
     kl_div_suffix: str | None = None,
     max_extended_steps: int = 3,
     expand_search: bool = True,
+    continue_from_checkpoint: bool = False,
 ) -> tuple[list[SpecNode], list[str], list[float], list[str]]:
     print("Searching for a spec. Start index: ", start_idx)
     print("Initial spec: ", node2spec(init_node))
@@ -112,6 +113,7 @@ def search_train_evaluate(
             if os.path.exists(node_path):
                 pass
             else:
+                os.makedirs(os.path.dirname(node_path), exist_ok=True)
                 with open(node_path, "wb") as f:
                     pickle.dump(n, f)
 
@@ -170,6 +172,7 @@ def search_train_evaluate(
             env_config,
             warm_start_path,
             kl_div_suffix,
+            continue_from_checkpoint=continue_from_checkpoint,
         )
 
         filtered_nodes: list[SpecNode]
@@ -241,6 +244,7 @@ def search_train_evaluate(
                     env_config,
                     warm_start_path,
                     kl_div_suffix,
+                    continue_from_checkpoint=continue_from_checkpoint,
                 )
 
                 neighbor_nodes += additional_neighbors
@@ -419,7 +423,7 @@ def search_train_evaluate(
 
 def train_evaluate_multiprocess(
     num_processes: int,
-    num_replicates: int,
+    num_replicates: list[str],
     total_time_steps: int,
     model_save_path: str,
     learning_curve_path: str,
@@ -437,6 +441,7 @@ def train_evaluate_multiprocess(
     warm_start_path: str | None = None,
     kl_div_suffix: str | None = None,
     kl_div_weighted: bool = True,
+    continue_from_checkpoint: bool = False,
 ) -> tuple[list[float], list[float], list[float]]:
     inputs = [
         (
@@ -458,6 +463,7 @@ def train_evaluate_multiprocess(
             warm_start_path,
             kl_div_suffix,
             kl_div_weighted,
+            continue_from_checkpoint,
         )
         for tl_spec in tl_specs
     ]
@@ -481,7 +487,7 @@ def train_evaluate_multiprocess(
 
 
 def train_evaluate(
-    num_replicates: int,
+    num_replicates: list[str],
     total_time_steps: int,
     model_save_path: str,
     learning_curve_path: str,
@@ -499,56 +505,58 @@ def train_evaluate(
     warm_start_path: str | None = None,
     kl_div_suffix: str | None = None,
     kl_div_weighted: bool = True,
+    continue_from_checkpoint: bool = False,
 ) -> tuple[KLDivReportDict, float, float]:
 
     env_config["config"]["tl_spec"] = tl_spec
     env = CustomBuilder(**env_config)
 
-    seeds_tmp: list[int] = [random.randint(0, 10000) for _ in range(num_replicates)]
+    seeds_tmp: list[int] = [random.randint(0, 10000) for _ in num_replicates]
 
-    try:
-        spec_models: list[PPO] = train_replicate_tl_agent(
-            num_replicates,
-            env,
-            seeds_tmp,
-            total_time_steps,
-            model_save_path.replace(".zip", f"_{spec2title(tl_spec)}.zip"),
-            learning_curve_path.replace(".png", f"_{spec2title(tl_spec)}.png"),
-            (
-                animation_save_path.replace(".gif", f"_{spec2title(tl_spec)}.gif")
-                if animation_save_path is not None
-                else None
-            ),
-            device,
-            algo_kwargs,
-            window,
-            warm_start_path,
-        )
+    # try:
+    spec_models: list[PPO] = train_replicate_tl_agent(
+        num_replicates,
+        env,
+        seeds_tmp,
+        total_time_steps,
+        model_save_path.replace(".zip", f"_{spec2title(tl_spec)}.zip"),
+        learning_curve_path.replace(".png", f"_{spec2title(tl_spec)}.png"),
+        (
+            animation_save_path.replace(".gif", f"_{spec2title(tl_spec)}.gif")
+            if animation_save_path is not None
+            else None
+        ),
+        device,
+        algo_kwargs,
+        window,
+        warm_start_path,
+        continue_from_checkpoint=continue_from_checkpoint,
+    )
 
-        kl_div_report, reward_mean, episode_length = evaluate_models(
-            env,
-            device,
-            target_gaus_means_list,
-            target_gaus_stds_list,
-            target_trap_masks,
-            spec_models,
-            obs_list,
-            data_save_path.replace(".json", f"_{spec2title(tl_spec)}.json"),
-            kl_div_suffix=kl_div_suffix,
-            kl_div_weighted=kl_div_weighted,
-        )
+    kl_div_report, reward_mean, episode_length = evaluate_models(
+        env,
+        device,
+        target_gaus_means_list,
+        target_gaus_stds_list,
+        target_trap_masks,
+        spec_models,
+        obs_list,
+        data_save_path.replace(".json", f"_{spec2title(tl_spec)}.json"),
+        kl_div_suffix=kl_div_suffix,
+        kl_div_weighted=kl_div_weighted,
+    )
 
-    except:
-        kl_div_report: KLDivReportDict = {
-            "kl_div_mean": 999,
-            "kl_div_std": 0,
-            "kl_div_max": 999,
-            "kl_div_min": 999,
-            "kl_div_median": 999,
-            "kl_ci": (999, 999),
-        }
-        reward_mean: float = 0
-        episode_length: float = 0
+    # except:
+    #     kl_div_report: KLDivReportDict = {
+    #         "kl_div_mean": 999,
+    #         "kl_div_std": 0,
+    #         "kl_div_max": 999,
+    #         "kl_div_min": 999,
+    #         "kl_div_median": 999,
+    #         "kl_ci": (999, 999),
+    #     }
+    #     reward_mean: float = 0
+    #     episode_length: float = 0
 
     return kl_div_report, reward_mean, episode_length
 
