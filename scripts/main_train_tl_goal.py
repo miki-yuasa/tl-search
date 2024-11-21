@@ -18,7 +18,7 @@ total_timesteps: int = 600_000
 task_name: str = "SafetyCarTLGoal1-v0"
 
 continue_from_checkpoint: bool = False
-replay_only: bool = False
+replay_only: bool = True
 
 tl_title: str = spec2title(tl_spec)
 net_arch = [512, 512]  # [256, 256]

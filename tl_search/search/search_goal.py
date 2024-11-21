@@ -106,7 +106,7 @@ def search_train_evaluate(
         )
 
         for n, s in zip(neighbor_nodes, neighbor_specs):
-            node_path: str = f"out/nodes/parking/{spec2title(s)}.pkl"
+            node_path: str = f"out/nodes/goal/{spec2title(s)}.pkl"
 
             if os.path.exists(node_path):
                 pass
@@ -571,10 +571,10 @@ def evaluate_models(
         ".json",
         "_kl_div.json" if kl_div_suffix is None else f"_kl_div_{kl_div_suffix}.json",
     )
-    if kl_div_suffix is not None:
-        kl_div_save_path.replace("/kl_div", "/kl_div/kl_div")
-    else:
-        pass
+    # if kl_div_suffix is not None:
+    #     kl_div_save_path.replace("/kl_div", "/kl_div/kl_div")
+    # else:
+    #     pass
     reward_save_path: str = data_save_path.replace(".json", "_reward.json")
     episode_length_save_path: str = data_save_path.replace(".json", "_episode.json")
 
@@ -765,40 +765,49 @@ def get_action_distributions(
     return np.array(gaus_means), np.array(gaus_stds), np.array(trap_mask)
 
 
-def obs2kin_dict(obs: dict[str, NDArray[np.float64] | float]) -> dict[str, np.float64]:
-    ego_loc: NDArray[np.float64] = obs["achieved_goal"][0:2]
-    goal_loc: NDArray[np.float64] = obs["desired_goal"][0:2]
-    adv_loc: NDArray[np.float64] = obs["observation"].reshape(2, -1)[-1, 0:2]
+def obs2kin_dict(obs: NDArray[np.float64]) -> dict[str, np.float64]:
+    """
+    Observation of size (72,) is flattened version of the following dict structure:
+    {
+        "accelerometer": NDArray[np.float64] (3,),
+        "velocimeter": NDArray[np.float64] (3,),
+        "gyro": NDArray[np.float64] (3,),
+        "magnetometer": NDArray[np.float64] (3,),
+        "ballangvel_rear": NDArray[np.float64] (3,),
+        "ballquat_rear": NDArray[np.float64] (3,3),
+        "goal_lidar": NDArray[np.float64] (16,),
+        "hazards_lidar": NDArray[np.float64] (16,),
+        "vase_lidar": NDArray[np.float64] (16,),
+    }
+    """
+    obs_dict: dict[str, NDArray[np.float64]] = {
+        "accelerometer": obs[:3],
+        "velocimeter": obs[3:6],
+        "gyro": obs[6:9],
+        "magnetometer": obs[9:12],
+        "ballangvel_rear": obs[12:15],
+        "ballquat_rear": obs[15:24].reshape(3, 3),
+        "goal_lidar": obs[24:40],
+        "hazards_lidar": obs[40:56],
+        "vase_lidar": obs[56:72],
+    }
 
-    d_ego_goal: np.float64 = np.linalg.norm(ego_loc - goal_loc)
-    d_ego_dv: np.float64 = np.linalg.norm(ego_loc - adv_loc)
-
-    wall_width: float = 70
-    wall_height: float = 42
-
-    wall_min_x: float = -wall_width / 2
-    wall_max_x: float = wall_width / 2
-    wall_min_y: float = -wall_height / 2
-    wall_max_y: float = wall_height / 2
-
-    d_ego_wall: np.float64 = np.min(
-        np.array(
-            [
-                np.abs(ego_loc[0] - wall_min_x),
-                np.abs(ego_loc[0] - wall_max_x),
-                np.abs(ego_loc[1] - wall_min_y),
-                np.abs(ego_loc[1] - wall_max_y),
-            ]
-        )
-    )
+    lidar_max_dist: float = 3.0
 
     kin_dict: dict[str, np.float64] = {
-        "d_ego_goal": d_ego_goal,
-        "d_ego_adv": d_ego_dv,
-        "d_ego_wall": d_ego_wall,
+        "d_gl": lidar2dist(np.max(obs_dict["goal_lidar"]), lidar_max_dist),
+        "d_hz": lidar2dist(np.max(obs_dict["hazards_lidar"]), lidar_max_dist),
+        "d_vs": lidar2dist(np.max(obs_dict["vase_lidar"]), lidar_max_dist),
     }
 
     return kin_dict
+
+
+def lidar2dist(lidar_read: float, lidar_max_dist: float) -> float:
+    if lidar_read == 0:
+        return lidar_max_dist
+    else:
+        return (1 - lidar_read) * lidar_max_dist
 
 
 def select_max_entropy_spec_replicate(
@@ -978,3 +987,36 @@ def train_exh(
 
     # except:
     #     print(f"Failed to train {tl_spec}.")
+
+
+def sample_obs(
+    env: CustomBuilder,
+    model: PPO,
+    num_samples: int,
+    population_scale: float = 1.5,
+) -> list[dict[str, Any]]:
+    obs_list: list[dict[str, Any]] = []
+
+    num_collected: int = round(num_samples * population_scale)
+    sample_counter: int = 0
+
+    while sample_counter < num_collected:
+        obs, _ = env.reset()
+        while True:
+            action = model.predict(obs, deterministic=True)[0]
+            obs, _, terminated, truncated, _ = env.step(action)
+
+            if terminated or truncated:
+                if env._is_success():
+                    obs_list.append(obs)
+                    sample_counter += 1
+                else:
+                    pass
+                break
+            else:
+                obs_list.append(obs)
+                sample_counter += 1
+
+    obs_list_sampled: list[dict[str, Any]] = random.sample(obs_list, num_samples)
+
+    return obs_list_sampled
