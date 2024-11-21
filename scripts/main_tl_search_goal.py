@@ -128,9 +128,9 @@ if __name__ == "__main__":
     dir_name: str = "goal"
     common_dir_path: str = f"search/{dir_name}"
     target_model_path: str = (
-        f"out/models/safety_car_goal1/safety_car_goal1_ppo_128_0.zip"
+        f"out/models/safety_car_goal1/safety_car_goal1_ppo_128.zip"
         if target_spec == "normal_reward"
-        else f"out/models/search/goal/ppo_{spec2title(target_spec)}_0.zip"
+        else f"out/models/search/goal/ppo_{spec2title(target_spec)}.zip"
     )
     summary_log_path: str = (
         f"out/data/{common_dir_path}/multistart_{log_suffix}_ppo_{run}{suffix}.json"

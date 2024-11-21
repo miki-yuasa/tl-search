@@ -7,6 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 import torch
 from stable_baselines3 import PPO
+from stable_baselines3.common.distributions import DiagGaussianDistribution
 
 from tl_search.common.io import spec2title
 from tl_search.common.typing import (
@@ -749,8 +750,11 @@ def get_action_distributions(
     for i, obs in enumerate(obs_list):
         model.policy.set_training_mode(False)
         obs_tensor, _ = model.policy.obs_to_tensor(obs)
-        mean_actions, log_std, _ = model.actor.get_action_dist_params(obs_tensor)
-        action_std = torch.ones_like(mean_actions) * torch.exp(log_std)
+        distribution: DiagGaussianDistribution = model.policy.get_distribution(
+            obs_tensor
+        )
+        mean_actions = distribution.distribution.mean
+        action_std = distribution.distribution.stddev
         gaus_mean = mean_actions.cpu().detach().numpy()
         gaus_std = action_std.cpu().detach().numpy()
         gaus_means.append(gaus_mean)
