@@ -1,7 +1,5 @@
-from typing import Literal
-from matplotlib.axes import Axes
 import numpy as np
-from stable_baselines3 import PPO, SAC, HerReplayBuffer
+from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 
 from tl_search.envs.parking import AdversarialParkingEnv
@@ -26,6 +24,7 @@ config = {
     "screen_width": 600,
     "screen_height": 300,
     "screen_center": "centering_position",
+    "offscreen_rendering": True,
     "centering_position": [0.5, 0.5],
     "scaling": 7,
     "controlled_vehicles": 1,
@@ -53,4 +52,4 @@ ax.imshow(image)
 ax.set_xticks([])
 ax.set_yticks([])
 
-plt.savefig(plot_save_path, dpi=600, bbox_inches="tight")
+plt.savefig(plot_save_path, dpi=600, bbox_inches="tight", pad_inches=0)
