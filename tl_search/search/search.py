@@ -1,57 +1,41 @@
-import json, os, pickle
-from multiprocessing import Pool
+import json
 import multiprocessing as mp
+import os
+import pickle
 import random
+from multiprocessing import Pool
 from typing import Literal
 
 import numpy as np
-from numpy.typing import NDArray
-from scipy.special import rel_entr, entr
 import torch
+from gymnasium import spaces
+from numpy.typing import NDArray
+from scipy.special import entr, rel_entr
 from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.monitor import Monitor
 
-from gymnasium import spaces
-
 from tl_search.common.io import spec2title
-from tl_search.common.typing import (
-    EntropyReportDict,
-    EpisodeLengthReport,
-    FilteredLog,
-    KLDivReportDict,
-    ObsProp,
-    RewardReportDict,
-    SearchLog,
-    SortedLog,
-    SpecNode,
-    ValueTable,
-)
+from tl_search.common.typing import (EntropyReportDict, EpisodeLengthReport,
+                                     FilteredLog, KLDivReportDict, ObsProp,
+                                     RewardReportDict, SearchLog, SortedLog,
+                                     SpecNode, ValueTable)
 from tl_search.common.utils import find_min_kl_div_tl_spec
-from tl_search.evaluation.extractor import (
-    generate_possible_states,
-    get_action_distributions,
-)
-from tl_search.search.select import (
-    select_max_entropy_spec_replicate,
-)
 from tl_search.envs.tl_multigrid import TLMultigrid, TLMultigridDefaultArgs
-from tl_search.train.train import simulate_model
 from tl_search.envs.typing import EnemyPolicyMode, FieldObj
-from tl_search.evaluation.count import (
-    evaluate_episode_lengths_tl,
-    get_episode_length_report,
-)
+from tl_search.evaluation.count import (evaluate_episode_lengths_tl,
+                                        get_episode_length_report)
 from tl_search.evaluation.eval import collect_kl_div_stats
+from tl_search.evaluation.extractor import (generate_possible_states,
+                                            get_action_distributions)
 from tl_search.evaluation.filter import apply_filter
 from tl_search.evaluation.ranking import sort_spec
-from tl_search.search.neighbor import (
-    find_additional_neighbors,
-    find_neighbor_nodes_specs,
-    node2spec,
-    nodes2specs,
-)
+from tl_search.search.neighbor import (find_additional_neighbors,
+                                       find_neighbor_nodes_specs, node2spec,
+                                       nodes2specs)
+from tl_search.search.select import select_max_entropy_spec_replicate
 from tl_search.train.tl_train import train_replicate_tl_agent
+from tl_search.train.train import simulate_model
 
 
 def search_train_evaluate(
@@ -110,6 +94,7 @@ def search_train_evaluate(
     extension_counter: int = 0
     local_minimum_spec: str = ""
 
+    # Outerloop for the search
     for step in range(search_start_iter, num_max_search_steps):
         print(f"Start {start_idx}, Step {step}")
         print(f"Current spec: {node2spec(node)}")
@@ -168,6 +153,7 @@ def search_train_evaluate(
                     ".zip", f"_{spec2title(node2spec(node))}.zip"
                 )
 
+        # Train & evaluate the models in the neighborhood
         kl_div_means, reward_means, mean_episode_lengths = train_evaluate_multiprocess(
             num_processes,
             num_replicates,
@@ -194,6 +180,7 @@ def search_train_evaluate(
             kl_div_suffix,
         )
 
+        # Apply reward and episode length filter
         filtered_nodes: list[SpecNode]
         filtered_specs: list[str]
         filtered_kl_divs: list[float]
@@ -231,6 +218,7 @@ def search_train_evaluate(
             max_kl_div_mean,
         ) = find_min_kl_div_tl_spec(filtered_specs, filtered_kl_divs)
 
+        # Extend the search if the minimum KL-divergence spec is the same as the current spec
         if min_kl_div_spec == node2spec(node):
             if expand_search:
                 print("The min KL-divergence spec is the same as the current spec.")
@@ -320,6 +308,7 @@ def search_train_evaluate(
                 hit_local_minimum = True
                 hit_step = step
 
+            # Extend the search if the local minimum is hit
             elif hit_local_minimum and (hit_step - step) % 2 == 0:
                 if local_minimum_spec == min_kl_div_spec:
                     extension_counter += 1

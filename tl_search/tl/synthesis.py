@@ -1,7 +1,8 @@
 import re
+
 import spot
 
-from tl_search.common.typing import ObsProp, Transition, AtomicPropositions
+from tl_search.common.typing import AtomicPropositions, ObsProp, Transition
 
 
 class Edge:
