@@ -14,6 +14,20 @@ Refer to [pygame installation guide](https://www.pygame.org/wiki/CompileUbuntu?p
 ### Organization
 The directory structure is as follows:
 ```
+- assets/ # contains CtF map files
+- scripts/
+    - archive/ # contains the archived scripts
+    - plotting/ # contains the plotting scripts
+    - utils/ # contains the utility scripts
+    - main_*.py # main scripts for running the experiments
+- tests/ # contains the test scripts
+- tl-search/ # contains the main implementation of TL Search
+    - envs/ # contains the environments
+        - tl_*.py # contains the target policy and the TL reward function
+    - search/ # contains the search algorithms
+    - tl/ # contains the TL parsing and reward utilities
+    - train/ # contains the training algorithms
+
 ```
 
 ### Scripts dir
