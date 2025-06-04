@@ -1,10 +1,11 @@
-import re, sys
+import re
+import sys
 from collections import deque
-from typing import Callable, Union, cast, Pattern
-from tl_search.envs.typing import FieldObj
+from typing import Callable, Pattern, Union, cast
 
+from tl_search.common.typing import MapLocations, ObsProp, SymbolProp
+from tl_search.envs.typing import FieldObj
 from tl_search.tl.synthesis import TLAutomaton
-from tl_search.common.typing import SymbolProp, ObsProp, MapLocations
 
 
 class Parsers:
@@ -173,7 +174,7 @@ def tokenize(spec: str, SPLITTER: Pattern = __parsers.splitter) -> list[str]:
                 sys.exit(1)
         elif token == "-":
             if token_list[-1] == "<":
-                token_list.append(token_list.pop + token)
+                token_list.append(token_list.pop() + token)
             elif token_list_tmp[0] == ">":
                 token_list.append(token + token_list_tmp.popleft())
             else:
@@ -281,15 +282,15 @@ def evaluate(
 
 # spec = "psi_ba_ra&!psi_ba_ob&!psi_ba_rt&!psi_ba_wa&!psi_ra_bt | psi_ba_ra&!psi_ba_ob&!psi_ba_rt&!psi_ba_wa&!psi_ra_bf"
 # rob_dict = {
-#    "psi_ba_ra": -5.0710678118654755,
-#    "psi_ba_rf": -6.5710678118654755,
-#    "psi_ba_rt": -3.5,
-#    "psi_ra_bf": -8.055385138137417,
-#    "psi_ba_ob": -1.5,
-#    "psi_ba_wa": -2.5,
-#    "psi_ra_bt": -3,
+#     "psi_ba_ra": -5.0710678118654755,
+#     "psi_ba_rf": -6.5710678118654755,
+#     "psi_ba_rt": -3.5,
+#     "psi_ra_bf": -8.055385138137417,
+#     "psi_ba_ob": -1.5,
+#     "psi_ba_wa": -2.5,
+#     "psi_ra_bt": -3,
 # }
-# tl2rob(spec, rob_dict)
+# print(tl2rob(spec, rob_dict))
 # token_list: list[str] = tokenize(spec, __parsers.splitter)
 # var_list = get_vars(token_list, rob_dict)
 # print(var_list)
