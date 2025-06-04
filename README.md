@@ -30,7 +30,7 @@ The directory structure is as follows:
 
 ```
 
-### Scripts dir
+### Scripts Directory
 - `main_tl_search_<env_name>.py`: main script for running TL Search on the specified environment.
 - `main_tl_exhaustive_<env_name>.py`: main script for training all the policies for all the candidate explanations in the specified environment.
 - `main_train_<env_name>.py`: main script for training the target policy with the normal reward function in the specified environment.
@@ -38,7 +38,15 @@ The directory structure is as follows:
 - `main_tl_simulate_<env_name>.py`: main script for simulating the a policy in the specified environment.
 - `main_eval_<env_name>.py`: main script for evaluating the target policy in the specified environment.
 
-### Process
+### Procedure
 1. Train the target policy with the normal reward function / TL reward using `main_train_<env_name>.py`/`main_train_tl_<env_name>.py`.
 2. Optionally, run `main_tl_exhaustive_<env_name>.py` to train all the policies for all the candidate explanations.
 3. Run `main_tl_search_<env_name>.py` to run TL Search on the target policy.
+
+## Contributing
+Contributions are welcome! Please feel free to open issues or pull requests.
+Refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file for more details.
+
+
+## License
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
